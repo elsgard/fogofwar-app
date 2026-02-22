@@ -181,6 +181,12 @@ export function DMView(): React.JSX.Element {
           >
             Open Player Window
           </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => window.open(`${window.location.origin}?role=player`)}
+          >
+            Open in Browser
+          </button>
         </section>
 
         {selectedToken && (

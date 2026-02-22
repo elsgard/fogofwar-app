@@ -2,19 +2,34 @@ import { useEffect } from 'react'
 import { DMView } from './views/DMView'
 import { PlayerView } from './views/PlayerView'
 import { useGameStore } from './store/gameStore'
+import type { GameState } from './types'
 
 const role = new URLSearchParams(window.location.search).get('role') ?? 'dm'
+const SSE_PORT = 7654
 
 function App(): React.JSX.Element {
   const applyState = useGameStore((s) => s.applyState)
 
   useEffect(() => {
-    // Fetch the current game state on mount
+    // window.api is only available in the Electron context (via contextBridge).
+    // In a regular browser (e.g. localhost:5173?role=player) it is undefined,
+    // so we fall back to the local SSE server running on the main process.
+    if (!window.api) {
+      fetch(`http://localhost:${SSE_PORT}/state`)
+        .then((r) => r.json())
+        .then((state) => applyState(state as GameState))
+        .catch(() => {})
+
+      const es = new EventSource(`http://localhost:${SSE_PORT}/events`)
+      es.onmessage = (e) => applyState(JSON.parse(e.data) as GameState)
+      return () => es.close()
+    }
+
+    // Electron path: use IPC
     window.api.getState().then((state) => {
       if (state) applyState(state)
     })
 
-    // Subscribe to live state broadcasts from main process
     const unsubscribe = window.api.onStateUpdate((state) => {
       applyState(state)
     })
