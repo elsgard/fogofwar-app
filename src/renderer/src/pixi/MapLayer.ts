@@ -9,25 +9,23 @@ export class MapLayer extends Container {
   private _mapHeight = 0
 
   async setMap(dataUrl: string, width: number, height: number): Promise<void> {
-    if (this.sprite) {
-      this.removeChild(this.sprite)
-      this.sprite.destroy({ texture: true })
-      this.sprite = null
-    }
-
-    // Store dimensions before async load so fitWorld() can use them immediately.
-    this._mapWidth = width
-    this._mapHeight = height
-
-    // Load via HTMLImageElement (governed by img-src CSP, not connect-src).
-    // This ensures the image is fully decoded before we create the texture,
-    // avoiding the 1×1 white placeholder that Texture.from(url) returns initially.
+    // Load the image before touching the existing sprite so there's no blank frame.
     const img = new Image()
     img.src = dataUrl
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve()
       img.onerror = () => reject(new Error('Failed to load map image'))
     })
+
+    // Swap old sprite out only once the new texture is ready.
+    if (this.sprite) {
+      this.removeChild(this.sprite)
+      this.sprite.destroy({ texture: true })
+      this.sprite = null
+    }
+
+    this._mapWidth = width
+    this._mapHeight = height
 
     const texture = Texture.from(img)
     this.sprite = new Sprite(texture)
