@@ -99,8 +99,10 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
         const { map: currentMap, fogOps: currentFogOps, tokens: currentTokens } =
           useGameStore.getState()
         if (currentMap) {
-          await mapLayer.setMap(currentMap.dataUrl, currentMap.width, currentMap.height)
-          if (cancelled) return
+          // Initialise fog BEFORE awaiting the map image so that fogLayer.isReady
+          // becomes true as soon as possible. Fog ops arriving via SSE while the
+          // image is decoding can then be rendered incrementally by the fogOps
+          // useEffect instead of being silently dropped (isReady=false → early return).
           fogLayer.init(
             app.renderer as Parameters<FogLayer['init']>[0],
             currentMap.width,
@@ -111,16 +113,21 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
           prevFogOpsLenRef.current = currentFogOps.length
           tokenLayer.syncTokens(currentTokens)
 
-          // Fit the map into the visible area (accounting for sidebar in DM view)
+          // Fit the world using known dimensions before the image loads so the
+          // fog is already positioned correctly while the sprite is pending.
           const sidebarW = isPlayerView ? 0 : 260
           const availW = app.screen.width - sidebarW
           const availH = app.screen.height
-          const scaleX = availW / currentMap.width
-          const scaleY = availH / currentMap.height
-          const scale = Math.min(scaleX, scaleY, 1)
+          const scale = Math.min(availW / currentMap.width, availH / currentMap.height, 1)
           world.scale.set(scale)
           world.x = sidebarW + (availW - currentMap.width * scale) / 2
           world.y = (availH - currentMap.height * scale) / 2
+
+          // Now load the map image (may take hundreds of ms for large images).
+          await mapLayer.setMap(currentMap.dataUrl, currentMap.width, currentMap.height)
+          if (cancelled) return
+          // Re-fit now that mapLayer.mapWidth is set (needed for future fitWorld() calls).
+          fitWorld()
         }
       })
 
@@ -156,12 +163,20 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
 
     let cancelled = false
     const run = async (): Promise<void> => {
-      await mapLayer.setMap(map.dataUrl, map.width, map.height)
-      if (cancelled) return
+      // Init fog BEFORE awaiting the map image (same reasoning as PixiJS init
+      // block): we know the dimensions already, so make fogLayer.isReady=true
+      // immediately so SSE fog ops arriving during image loading are rendered
+      // incrementally instead of being dropped.
       fogLayer.init(app.renderer as Parameters<FogLayer['init']>[0], map.width, map.height)
       fogLayer.setAlpha(isPlayerView ? 1 : 0.5)
-      fogLayer.applyOps(fogOps)
-      prevFogOpsLenRef.current = fogOps.length
+      // Read fogOps from store rather than the closure value, in case SSE updates
+      // arrived between when this effect registered and when it runs.
+      const currentFogOps = useGameStore.getState().fogOps
+      fogLayer.applyOps(currentFogOps)
+      prevFogOpsLenRef.current = currentFogOps.length
+
+      await mapLayer.setMap(map.dataUrl, map.width, map.height)
+      if (cancelled) return
       fitWorld()
     }
     run()

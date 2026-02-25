@@ -37,15 +37,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedTokenId: null,
 
   applyState: (state) => set((s) => ({
-    // Keep the existing map reference when the image hasn't changed so that
-    // MapCanvas's map useEffect (which depends on [map]) doesn't re-fire on
-    // every state broadcast. A new structuredClone reference with the same
-    // dataUrl would otherwise trigger an async fogLayer.init() reset on every
-    // fog-op update, corrupting prevFogOpsLenRef and causing the browser player
-    // to always render one stroke behind.
-    map: s.map?.dataUrl === state.map?.dataUrl ? s.map : state.map,
-    fogOps: state.fogOps,
-    tokens: state.tokens,
+      // SSE lite updates omit map.dataUrl (empty string) to keep payloads small.
+      // Three cases:
+      //   no map at all         → clear map
+      //   map with dataUrl      → full update; keep existing ref if dataUrl unchanged
+      //   map with empty dataUrl → lite SSE update; keep the existing map object
+      map: !state.map
+        ? null
+        : state.map.dataUrl
+          ? (s.map?.dataUrl === state.map.dataUrl ? s.map : state.map)
+          : s.map,
+      fogOps: state.fogOps,
+      tokens: state.tokens,
   })),
 
   loadMap: async () => {

@@ -14,6 +14,11 @@ let playerWindow: BrowserWindow | null = null
 // ── SSE server (browser player view) ─────────────────────────────────────────
 const SSE_PORT = 7654
 let sseClients: ServerResponse[] = []
+// Track the last map dataUrl we sent via SSE so we can omit it when unchanged.
+// The full dataUrl is large (base64 image) and was causing the "one-behind" bug:
+// each write() to the HTTP response was buffered until the next write() flushed it.
+// By stripping the dataUrl from routine fog-op updates we keep each SSE event tiny.
+let sseLastMapDataUrl = ''
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -91,9 +96,19 @@ function startSseServer(): void {
 }
 
 function broadcastSse(state: GameState): void {
-  const payload = `data: ${JSON.stringify(state)}\n\n`
-  sseClients = sseClients.filter((c) => !c.destroyed)
-  for (const client of sseClients) client.write(payload)
+  const alive = sseClients.filter((c) => !c.destroyed)
+  sseClients = alive
+
+  // Only include map.dataUrl when it has changed. On every fog-op update the map
+  // is the same, so we strip the large base64 blob and keep the SSE event tiny.
+  const mapChanged = (state.map?.dataUrl ?? '') !== sseLastMapDataUrl
+  sseLastMapDataUrl = state.map?.dataUrl ?? ''
+  const sseState: GameState = mapChanged
+    ? state
+    : { ...state, map: state.map ? { ...state.map, dataUrl: '' } : null }
+
+  const payload = `data: ${JSON.stringify(sseState)}\n\n`
+  for (const client of alive) client.write(payload)
 }
 
 function rendererUrl(role: 'dm' | 'player'): string {
