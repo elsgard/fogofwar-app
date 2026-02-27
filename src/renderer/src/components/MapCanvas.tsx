@@ -89,7 +89,13 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
         tokenLayer.setLabelSize(initLabelSize)
         tokenLayer.setLabelsVisible(initLabelVisible)
 
-        world.addChild(mapLayer, fogLayer, tokenLayer)
+        // DM: tokens above fog (always visible)
+        // Player: tokens below fog (hidden by unrevealed areas)
+        if (isPlayerView) {
+          world.addChild(mapLayer, tokenLayer, fogLayer)
+        } else {
+          world.addChild(mapLayer, fogLayer, tokenLayer)
+        }
         mapLayerRef.current = mapLayer
         fogLayerRef.current = fogLayer
         tokenLayerRef.current = tokenLayer
@@ -99,6 +105,9 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
         brushCursor.eventMode = 'none'
         app.stage.addChild(brushCursor)
         brushCursorRef.current = brushCursor
+
+        // Re-fit the world whenever the canvas is resized
+        app.renderer.on('resize', fitWorld)
 
         // MapCanvas only mounts after `map` is set in state (it replaces the
         // empty-state div). That means the map useEffect already ran while
