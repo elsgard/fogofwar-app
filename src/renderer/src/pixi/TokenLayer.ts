@@ -1,5 +1,5 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js'
-import type { Token } from '../types'
+import type { Token, TokenStatus } from '../types'
 
 const DEFAULT_TOKEN_RADIUS = 20
 const DEFAULT_LABEL_SIZE = 14
@@ -13,8 +13,11 @@ const TYPE_COLORS: Record<Token['type'], number> = {
 interface TokenSprite {
   container: Container
   circle: Graphics
+  statusGraphic: Graphics
+  statusLabel: Text
   label: Text
   color: number
+  status: TokenStatus
 }
 
 /**
@@ -51,8 +54,7 @@ export class TokenLayer extends Container {
     if (r === this.radius) return
     this.radius = r
     for (const sprite of this.sprites.values()) {
-      sprite.circle.clear()
-      sprite.circle.circle(0, 0, r).fill(sprite.color)
+      this.drawCircle(sprite)
       sprite.label.y = -(r + 10)
     }
   }
@@ -85,6 +87,40 @@ export class TokenLayer extends Container {
     }
   }
 
+  /** Redraws the circle and status indicator for a sprite. */
+  private drawCircle(sprite: TokenSprite): void {
+    const { circle, statusGraphic, color, status } = sprite
+    const r = this.radius
+
+    circle.clear()
+    if (status === 'dead') {
+      circle.circle(0, 0, r).fill({ color, alpha: 0.35 })
+    } else {
+      circle.circle(0, 0, r).fill(color)
+    }
+
+    statusGraphic.clear()
+    sprite.statusLabel.visible = false
+
+    if (status === 'dsa') {
+      // Warning symbol centered over the token
+      sprite.statusLabel.style = new TextStyle({
+        fontSize: r * 1.4,
+        fill: 0xf59e0b,
+        fontWeight: 'bold',
+        dropShadow: { color: 0x000000, blur: 4, distance: 0, alpha: 0.9 },
+      })
+      sprite.statusLabel.visible = true
+    } else if (status === 'dead') {
+      // White X through the token
+      const x = r * 0.55
+      statusGraphic
+        .moveTo(-x, -x).lineTo(x, x)
+        .moveTo(x, -x).lineTo(-x, x)
+        .stroke({ color: 0xffffff, width: 3, alpha: 0.9 })
+    }
+  }
+
   syncTokens(tokens: Token[]): void {
     const incoming = new Set(tokens.map((t) => t.id))
 
@@ -100,7 +136,6 @@ export class TokenLayer extends Container {
     // Add or update
     for (const token of tokens) {
       if (this.isPlayerView && !token.visibleToPlayers) {
-        // Hide or skip invisible tokens in player view
         const existing = this.sprites.get(token.id)
         if (existing) {
           this.removeChild(existing.container)
@@ -124,29 +159,33 @@ export class TokenLayer extends Container {
     container.y = token.y
 
     const color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
+    const status: TokenStatus = token.status ?? 'alive'
 
     const circle = new Graphics()
-    circle.circle(0, 0, this.radius).fill(color)
-
+    const statusGraphic = new Graphics()
+    const statusLabel = new Text({ text: '⚠', style: new TextStyle({ fontSize: this.radius * 1.4, fill: 0xf59e0b }) })
+    statusLabel.anchor.set(0.5, 0.5)
+    statusLabel.visible = false
     const label = new Text({ text: token.label, style: this.makeLabelStyle() })
     label.anchor.set(0.5, 0.5)
     label.y = -(this.radius + 10)
     label.visible = this.labelsVisible || token.id === this.hoveredId
 
-    container.addChild(circle, label)
+    container.addChild(circle, statusGraphic, statusLabel, label)
     this.addChild(container)
-    this.sprites.set(token.id, { container, circle, label, color })
+
+    const sprite: TokenSprite = { container, circle, statusGraphic, statusLabel, label, color, status }
+    this.sprites.set(token.id, sprite)
+    this.drawCircle(sprite)
   }
 
   private updateSprite(token: Token): void {
     const sprite = this.sprites.get(token.id)!
     sprite.container.x = token.x
     sprite.container.y = token.y
-
     sprite.color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
-    sprite.circle.clear()
-    sprite.circle.circle(0, 0, this.radius).fill(sprite.color)
-
+    sprite.status = token.status ?? 'alive'
+    this.drawCircle(sprite)
     sprite.label.text = token.label
   }
 

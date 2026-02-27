@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { MapCanvas } from '../components/MapCanvas'
 import { useGameStore } from '../store/gameStore'
-import type { Token } from '../types'
+import type { Token, TokenStatus } from '../types'
 
 const TOKEN_COLORS = [
   '#4a9eff', // blue
@@ -78,6 +78,23 @@ export function DMView(): React.JSX.Element {
 
   function handleToggleVisibility(token: Token): void {
     updateToken({ ...token, visibleToPlayers: !token.visibleToPlayers })
+  }
+
+  const STATUS_CYCLE: Record<TokenStatus, TokenStatus> = {
+    alive: 'dsa',
+    dsa: 'dead',
+    dead: 'alive',
+  }
+
+  const STATUS_ICON: Record<TokenStatus, string> = {
+    alive: '♥',
+    dsa: '⚠',
+    dead: '☠',
+  }
+
+  function handleCycleStatus(token: Token): void {
+    const current: TokenStatus = token.status ?? 'alive'
+    updateToken({ ...token, status: STATUS_CYCLE[current] })
   }
 
   return (
@@ -248,6 +265,13 @@ export function DMView(): React.JSX.Element {
                     />
                     <span className="token-label">{token.label}</span>
                     <span className="token-type">{token.type}</span>
+                    <button
+                      className={`btn-icon status-${token.status ?? 'alive'}`}
+                      title={`Status: ${token.status ?? 'alive'} (click to cycle)`}
+                      onClick={(e) => { e.stopPropagation(); handleCycleStatus(token) }}
+                    >
+                      {STATUS_ICON[token.status ?? 'alive']}
+                    </button>
                     <button
                       className={`btn-icon ${token.visibleToPlayers ? 'visible' : 'hidden'}`}
                       title={token.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}

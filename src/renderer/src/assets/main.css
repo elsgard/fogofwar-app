@@ -231,6 +231,16 @@ body,
   color: var(--danger);
 }
 
+.btn-icon.status-alive {
+  color: #4caf50;
+}
+.btn-icon.status-dsa {
+  color: #f59e0b;
+}
+.btn-icon.status-dead {
+  color: #9e9e9e;
+}
+
 /* ── Tool grid ──────────────────────────────────────────────────── */
 
 .tool-grid {

@@ -1,4 +1,5 @@
 export type TokenType = 'player' | 'npc' | 'enemy'
+export type TokenStatus = 'alive' | 'dsa' | 'dead'
 
 export interface Token {
   id: string
@@ -8,6 +9,7 @@ export interface Token {
   label: string
   color: string
   visibleToPlayers: boolean
+  status?: TokenStatus // optional — undefined means 'alive' (backward compatible)
 }
 
 // A single fog operation - stored as a list so we can replay on new windows
