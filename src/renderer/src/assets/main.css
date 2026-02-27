@@ -61,6 +61,19 @@ body,
   z-index: 10;
 }
 
+.dirty-indicator {
+  color: #f59e0b;
+}
+
+.session-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.session-buttons .btn {
+  flex: 1;
+}
+
 .sidebar-title {
   font-size: 18px;
   font-weight: 700;

@@ -1,11 +1,11 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron'
 import { join, extname } from 'path'
-import { readFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, GameState } from '../renderer/src/types'
+import type { FogOp, GameState, SaveFile } from '../renderer/src/types'
 import * as gs from './gameState'
 
 let dmWindow: BrowserWindow | null = null
@@ -279,6 +279,68 @@ app.whenReady().then(() => {
     gs.setTokenLabelVisible(visible)
     broadcastState()
   })
+
+  ipcMain.handle(IPC.SAVE_SCENE, async (): Promise<{ success: boolean; error?: string }> => {
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Save Scene',
+      defaultPath: 'scene.fowsave',
+      filters: [{ name: 'Fog of War Save', extensions: ['fowsave'] }],
+    })
+    if (!filePath) return { success: false }
+
+    const state = gs.getState()
+    const save: SaveFile = {
+      version: app.getVersion(),
+      savedAt: new Date().toISOString(),
+      map: state.map,
+      fogOps: state.fogOps,
+      tokens: state.tokens,
+      tokenRadius: state.tokenRadius,
+      tokenLabelSize: state.tokenLabelSize,
+      tokenLabelVisible: state.tokenLabelVisible,
+    }
+    await writeFile(filePath, JSON.stringify(save), 'utf-8')
+    return { success: true }
+  })
+
+  ipcMain.handle(
+    IPC.LOAD_SCENE,
+    async (): Promise<{ success: boolean; cancelled?: boolean; error?: string }> => {
+      const { filePaths } = await dialog.showOpenDialog({
+        title: 'Load Scene',
+        filters: [{ name: 'Fog of War Save', extensions: ['fowsave'] }],
+        properties: ['openFile'],
+      })
+      if (!filePaths.length) return { success: false, cancelled: true }
+
+      let save: SaveFile
+      try {
+        const raw = await readFile(filePaths[0], 'utf-8')
+        save = JSON.parse(raw) as SaveFile
+      } catch {
+        return { success: false, error: 'Could not read file.' }
+      }
+
+      const minorVersion = (v: string): string => v.split('.').slice(0, 2).join('.')
+      const appMinor = minorVersion(app.getVersion())
+      const saveMinor = minorVersion(save.version ?? '')
+      if (saveMinor !== appMinor) {
+        const { response } = await dialog.showMessageBox({
+          type: 'warning',
+          title: 'Version mismatch',
+          message: `This save was created with version ${save.version}, but the app is version ${app.getVersion()}. The file may not load correctly.`,
+          buttons: ['Open anyway', 'Cancel'],
+          defaultId: 1,
+          cancelId: 1,
+        })
+        if (response === 1) return { success: false, cancelled: true }
+      }
+
+      gs.loadSave(save)
+      broadcastState()
+      return { success: true }
+    }
+  )
 
   ipcMain.on(IPC.OPEN_PLAYER_WINDOW, () => {
     createPlayerWindow()

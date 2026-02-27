@@ -14,6 +14,8 @@ export interface FogOfWarAPI {
   setTokenRadius: (r: number) => void
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void
+  saveScene: () => Promise<{ success: boolean; error?: string }>
+  loadScene: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>
   openPlayerWindow: () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void
 }

@@ -33,6 +33,17 @@ export interface GameState {
   tokenLabelVisible: boolean
 }
 
+export interface SaveFile {
+  version: string
+  savedAt: string // ISO timestamp
+  map: MapInfo | null
+  fogOps: FogOp[]
+  tokens: Token[]
+  tokenRadius: number
+  tokenLabelSize: number
+  tokenLabelVisible: boolean
+}
+
 // IPC channel names as a const object to share between main and preload
 export const IPC = {
   LOAD_MAP: 'game:load-map',
@@ -47,5 +58,7 @@ export const IPC = {
   SET_TOKEN_RADIUS: 'game:set-token-radius',
   SET_TOKEN_LABEL_SIZE: 'game:set-token-label-size',
   SET_TOKEN_LABEL_VISIBLE: 'game:set-token-label-visible',
+  SAVE_SCENE: 'game:save-scene',
+  LOAD_SCENE: 'game:load-scene',
   STATE_UPDATE: 'game:state-update', // main → renderer broadcast
 } as const

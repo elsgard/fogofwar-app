@@ -1,4 +1,4 @@
-import type { GameState, FogOp, Token, MapInfo } from '../renderer/src/types'
+import type { GameState, FogOp, Token, MapInfo, SaveFile } from '../renderer/src/types'
 
 const state: GameState = {
   map: null,
@@ -64,4 +64,13 @@ export function setTokenLabelSize(size: number): void {
 
 export function setTokenLabelVisible(visible: boolean): void {
   state.tokenLabelVisible = visible
+}
+
+export function loadSave(save: SaveFile): void {
+  state.map = save.map
+  state.fogOps = save.fogOps
+  state.tokens = save.tokens
+  state.tokenRadius = save.tokenRadius
+  state.tokenLabelSize = save.tokenLabelSize
+  state.tokenLabelVisible = save.tokenLabelVisible
 }

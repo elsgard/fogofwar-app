@@ -26,6 +26,11 @@ interface GameStore extends GameState {
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void
   setSelectedTokenId: (id: string | null) => void
+
+  // Persistence
+  isDirty: boolean
+  saveScene: () => Promise<void>
+  loadScene: () => Promise<void>
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -41,6 +46,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   tokenLabelSize: 14,
   tokenLabelVisible: true,
   selectedTokenId: null,
+  isDirty: false,
 
   applyState: (state) => set((s) => ({
       // SSE lite updates omit map.dataUrl (empty string) to keep payloads small.
@@ -80,27 +86,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     window.api.commitMap(mapInfo)
     // Optimistic local update — main will also broadcast state
-    set({ map: mapInfo, fogOps: [] })
+    set({ map: mapInfo, fogOps: [], isDirty: true })
   },
 
   addFogOp: (op) => {
     window.api.addFogOp(op)
-    // Optimistic update
     set((s) => ({
       fogOps: op.type === 'reset' ? [op] : [...s.fogOps, op],
+      isDirty: true,
     }))
   },
 
   commitStroke: (ops) => {
     if (ops.length === 0) return
     window.api.batchFogOps(ops)
-    // Optimistic update — append the whole stroke at once
-    set((s) => ({ fogOps: [...s.fogOps, ...ops] }))
+    set((s) => ({ fogOps: [...s.fogOps, ...ops], isDirty: true }))
   },
 
   resetFog: () => {
     window.api.resetFog()
-    set({ fogOps: [] })
+    set({ fogOps: [], isDirty: true })
   },
 
   addToken: (partial) => {
@@ -109,17 +114,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       id: crypto.randomUUID(),
     }
     window.api.addToken(token)
-    set((s) => ({ tokens: [...s.tokens, token] }))
+    set((s) => ({ tokens: [...s.tokens, token], isDirty: true }))
   },
 
   updateToken: (token) => {
     window.api.updateToken(token)
-    set((s) => ({ tokens: s.tokens.map((t) => (t.id === token.id ? token : t)) }))
+    set((s) => ({ tokens: s.tokens.map((t) => (t.id === token.id ? token : t)), isDirty: true }))
   },
 
   removeToken: (id) => {
     window.api.removeToken(id)
-    set((s) => ({ tokens: s.tokens.filter((t) => t.id !== id) }))
+    set((s) => ({ tokens: s.tokens.filter((t) => t.id !== id), isDirty: true }))
     if (get().selectedTokenId === id) set({ selectedTokenId: null })
   },
 
@@ -127,15 +132,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setBrushRadius: (brushRadius) => set({ brushRadius }),
   setTokenRadius: (tokenRadius) => {
     window.api?.setTokenRadius(tokenRadius)
-    set({ tokenRadius })
+    set({ tokenRadius, isDirty: true })
   },
   setTokenLabelSize: (tokenLabelSize) => {
     window.api?.setTokenLabelSize(tokenLabelSize)
-    set({ tokenLabelSize })
+    set({ tokenLabelSize, isDirty: true })
   },
   setTokenLabelVisible: (tokenLabelVisible) => {
     window.api?.setTokenLabelVisible(tokenLabelVisible)
-    set({ tokenLabelVisible })
+    set({ tokenLabelVisible, isDirty: true })
   },
   setSelectedTokenId: (selectedTokenId) => set({ selectedTokenId }),
+
+  saveScene: async () => {
+    const result = await window.api.saveScene()
+    if (result.success) set({ isDirty: false })
+    else if (result.error) alert(`Save failed: ${result.error}`)
+  },
+
+  loadScene: async () => {
+    if (get().isDirty) {
+      const ok = window.confirm('You have unsaved changes. Load anyway and discard them?')
+      if (!ok) return
+    }
+    const result = await window.api.loadScene()
+    if (result.cancelled) return
+    if (result.error) alert(`Load failed: ${result.error}`)
+    else set({ isDirty: false })
+    // State itself arrives via the broadcastState() → onStateUpdate → applyState path
+  },
 }))

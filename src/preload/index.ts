@@ -27,6 +27,12 @@ const api = {
   setTokenLabelSize: (size: number): void => ipcRenderer.send(IPC.SET_TOKEN_LABEL_SIZE, size),
   setTokenLabelVisible: (visible: boolean): void => ipcRenderer.send(IPC.SET_TOKEN_LABEL_VISIBLE, visible),
 
+  saveScene: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.SAVE_SCENE),
+
+  loadScene: (): Promise<{ success: boolean; cancelled?: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.LOAD_SCENE),
+
   openPlayerWindow: (): void => ipcRenderer.send(IPC.OPEN_PLAYER_WINDOW),
 
   onStateUpdate: (cb: (state: GameState) => void): (() => void) => {

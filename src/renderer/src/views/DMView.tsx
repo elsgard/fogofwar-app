@@ -15,6 +15,7 @@ export function DMView(): React.JSX.Element {
     tokenLabelSize,
     tokenLabelVisible,
     selectedTokenId,
+    isDirty,
     loadMap,
     resetFog,
     addToken,
@@ -26,6 +27,8 @@ export function DMView(): React.JSX.Element {
     setTokenLabelSize,
     setTokenLabelVisible,
     setSelectedTokenId,
+    saveScene,
+    loadScene,
   } = useGameStore()
 
   const [newTokenLabel, setNewTokenLabel] = useState('')
@@ -56,6 +59,22 @@ export function DMView(): React.JSX.Element {
       {/* ── Left sidebar ── */}
       <aside className="sidebar">
         <h2 className="sidebar-title">Fog of War</h2>
+
+        {/* Session section */}
+        <section className="sidebar-section">
+          <h3>
+            Session
+            {isDirty && <span className="dirty-indicator" title="Unsaved changes"> ●</span>}
+          </h3>
+          <div className="session-buttons">
+            <button className="btn btn-primary" onClick={saveScene}>
+              Save…
+            </button>
+            <button className="btn btn-secondary" onClick={loadScene}>
+              Load…
+            </button>
+          </div>
+        </section>
 
         {/* Map section */}
         <section className="sidebar-section">
