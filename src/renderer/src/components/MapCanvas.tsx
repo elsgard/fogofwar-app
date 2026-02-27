@@ -132,7 +132,7 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
 
           // Fit the world using known dimensions before the image loads so the
           // fog is already positioned correctly while the sprite is pending.
-          const sidebarW = isPlayerView ? 0 : 260
+          const sidebarW = isPlayerView ? 0 : 300
           const availW = app.screen.width - sidebarW
           const availH = app.screen.height
           const scale = Math.min(availW / currentMap.width, availH / currentMap.height, 1)
@@ -248,7 +248,7 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
   // ── Fit world into canvas ────────────────────────────────────────────────
   // In DM view the sidebar overlays the left 260px, so we fit into the
   // remaining area and offset the world accordingly.
-  const SIDEBAR_W = isPlayerView ? 0 : 260
+  const SIDEBAR_W = isPlayerView ? 0 : 300
 
   const fitWorld = useCallback(() => {
     const world = worldRef.current

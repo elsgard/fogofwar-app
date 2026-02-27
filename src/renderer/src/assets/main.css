@@ -50,7 +50,7 @@ body,
   left: 0;
   top: 0;
   bottom: 0;
-  width: 260px;
+  width: 300px;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
@@ -284,25 +284,47 @@ body,
   border-color: var(--accent);
 }
 
-.token-form-row {
+.token-type-radios {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
-.token-form select {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 5px 8px;
-  font-size: 13px;
+.token-type-radio {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 4px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text-muted);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  user-select: none;
+}
+
+.token-type-radio input[type='radio'] {
+  display: none;
+}
+
+.token-type-radio:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.token-type-active {
+  background: var(--accent);
+  border-color: var(--accent-dark);
+  color: #fff;
 }
 
 .color-swatches {
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
 .swatch {
@@ -316,6 +338,23 @@ body,
 }
 .swatch-active {
   border-color: #fff;
+}
+
+.swatch-picker {
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+  cursor: pointer;
+  position: relative;
+}
+
+.swatch-picker input[type='color'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: none;
+  padding: 0;
 }
 
 /* ── Token list ─────────────────────────────────────────────────── */

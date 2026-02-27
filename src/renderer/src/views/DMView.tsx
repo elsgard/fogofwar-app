@@ -3,7 +3,28 @@ import { MapCanvas } from '../components/MapCanvas'
 import { useGameStore } from '../store/gameStore'
 import type { Token } from '../types'
 
-const TOKEN_COLORS = ['#4a9eff', '#4caf50', '#e53935', '#ff9800', '#9c27b0', '#00bcd4']
+const TOKEN_COLORS = [
+  '#4a9eff', // blue
+  '#4caf50', // green
+  '#00897b', // teal
+  '#e53935', // red
+  '#ff5252', // bright red
+  '#ff9800', // orange
+  '#f59e0b', // amber
+  '#ffeb3b', // yellow
+  '#9c27b0', // purple
+  '#7e57c2', // indigo
+  '#e91e63', // pink
+  '#00bcd4', // cyan
+  '#ffffff', // white
+  '#9e9e9e', // grey
+]
+
+const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
+  player: '#4a9eff',
+  npc: '#f59e0b',
+  enemy: '#e53935',
+}
 
 export function DMView(): React.JSX.Element {
   const {
@@ -33,7 +54,12 @@ export function DMView(): React.JSX.Element {
 
   const [newTokenLabel, setNewTokenLabel] = useState('')
   const [newTokenType, setNewTokenType] = useState<Token['type']>('player')
-  const [newTokenColor, setNewTokenColor] = useState(TOKEN_COLORS[0])
+  const [newTokenColor, setNewTokenColor] = useState(TYPE_DEFAULT_COLORS.player)
+
+  function handleTypeChange(type: Token['type']): void {
+    setNewTokenType(type)
+    setNewTokenColor(TYPE_DEFAULT_COLORS[type])
+  }
 
   const selectedToken = tokens.find((t) => t.id === selectedTokenId) ?? null
 
@@ -166,25 +192,43 @@ export function DMView(): React.JSX.Element {
                   onChange={(e) => setNewTokenLabel(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
                 />
-                <div className="token-form-row">
-                  <select
-                    value={newTokenType}
-                    onChange={(e) => setNewTokenType(e.target.value as Token['type'])}
-                  >
-                    <option value="player">Player</option>
-                    <option value="npc">NPC</option>
-                    <option value="enemy">Enemy</option>
-                  </select>
-                  <div className="color-swatches">
-                    {TOKEN_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        className={`swatch ${newTokenColor === c ? 'swatch-active' : ''}`}
-                        style={{ background: c }}
-                        onClick={() => setNewTokenColor(c)}
+                <div className="token-type-radios">
+                  {(['player', 'npc', 'enemy'] as const).map((type) => (
+                    <label
+                      key={type}
+                      className={`token-type-radio ${newTokenType === type ? 'token-type-active' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="token-type"
+                        value={type}
+                        checked={newTokenType === type}
+                        onChange={() => handleTypeChange(type)}
                       />
-                    ))}
-                  </div>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </label>
+                  ))}
+                </div>
+                <div className="color-swatches">
+                  {TOKEN_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      className={`swatch ${newTokenColor === c ? 'swatch-active' : ''}`}
+                      style={{ background: c }}
+                      onClick={() => setNewTokenColor(c)}
+                    />
+                  ))}
+                  <label
+                    className={`swatch swatch-picker ${!TOKEN_COLORS.includes(newTokenColor) ? 'swatch-active' : ''}`}
+                    style={TOKEN_COLORS.includes(newTokenColor) ? undefined : { background: newTokenColor }}
+                    title="Custom color"
+                  >
+                    <input
+                      type="color"
+                      value={newTokenColor}
+                      onChange={(e) => setNewTokenColor(e.target.value)}
+                    />
+                  </label>
                 </div>
                 <button className="btn btn-primary" onClick={handleAddToken} disabled={!newTokenLabel.trim()}>
                   Add Token
