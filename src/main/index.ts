@@ -265,6 +265,21 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.SET_TOKEN_RADIUS, (_, r: number) => {
+    gs.setTokenRadius(r)
+    broadcastState()
+  })
+
+  ipcMain.on(IPC.SET_TOKEN_LABEL_SIZE, (_, size: number) => {
+    gs.setTokenLabelSize(size)
+    broadcastState()
+  })
+
+  ipcMain.on(IPC.SET_TOKEN_LABEL_VISIBLE, (_, visible: boolean) => {
+    gs.setTokenLabelVisible(visible)
+    broadcastState()
+  })
+
   ipcMain.on(IPC.OPEN_PLAYER_WINDOW, () => {
     createPlayerWindow()
   })

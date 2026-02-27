@@ -41,6 +41,9 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
   const tokens = useGameStore((s) => s.tokens)
   const activeTool = useGameStore((s) => s.activeTool)
   const brushRadius = useGameStore((s) => s.brushRadius)
+  const tokenRadius = useGameStore((s) => s.tokenRadius)
+  const tokenLabelSize = useGameStore((s) => s.tokenLabelSize)
+  const tokenLabelVisible = useGameStore((s) => s.tokenLabelVisible)
   const { commitStroke, updateToken, setSelectedTokenId } = useGameStore()
 
   // ── PixiJS init ──────────────────────────────────────────────────────────
@@ -80,6 +83,11 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
         const fogLayer = new FogLayer()
         const tokenLayer = new TokenLayer()
         tokenLayer.setPlayerView(isPlayerView)
+        const { tokenRadius: initRadius, tokenLabelSize: initLabelSize, tokenLabelVisible: initLabelVisible } =
+          useGameStore.getState()
+        tokenLayer.setRadius(initRadius)
+        tokenLayer.setLabelSize(initLabelSize)
+        tokenLayer.setLabelsVisible(initLabelVisible)
 
         world.addChild(mapLayer, fogLayer, tokenLayer)
         mapLayerRef.current = mapLayer
@@ -213,6 +221,20 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
   useEffect(() => {
     tokenLayerRef.current?.syncTokens(tokens)
   }, [tokens])
+
+  // ── React to token radius changes ────────────────────────────────────────
+  useEffect(() => {
+    tokenLayerRef.current?.setRadius(tokenRadius)
+  }, [tokenRadius])
+
+  // ── React to token label changes ─────────────────────────────────────────
+  useEffect(() => {
+    tokenLayerRef.current?.setLabelSize(tokenLabelSize)
+  }, [tokenLabelSize])
+
+  useEffect(() => {
+    tokenLayerRef.current?.setLabelsVisible(tokenLabelVisible)
+  }, [tokenLabelVisible])
 
   // ── Fit world into canvas ────────────────────────────────────────────────
   // In DM view the sidebar overlays the left 260px, so we fit into the
@@ -377,8 +399,14 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
         const { x, y } = toMapCoords(e)
         paintAt(x, y, activeTool, brushRadius)
       }
+
+      // Show a hovered token's label in DM view even when labels are globally hidden
+      if (!tokenLabelVisible) {
+        const { x, y } = toMapCoords(e)
+        tokenLayerRef.current?.setHoveredToken(tokenLayerRef.current.hitTest(x, y))
+      }
     },
-    [isPlayerView, activeTool, brushRadius, toMapCoords, paintAt, updateBrushCursor]
+    [isPlayerView, activeTool, brushRadius, tokenLabelVisible, toMapCoords, paintAt, updateBrushCursor]
   )
 
   const onPointerUp = useCallback(
@@ -409,6 +437,7 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
   const onPointerLeave = useCallback(
     (e: React.PointerEvent) => {
       brushCursorRef.current?.clear()
+      tokenLayerRef.current?.setHoveredToken(null)
       onPointerUp(e)
     },
     [onPointerUp]

@@ -1,18 +1,8 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { Token } from '../types'
 
-const TOKEN_RADIUS = 20
-const LABEL_STYLE = new TextStyle({
-  fontSize: 11,
-  fill: 0xffffff,
-  fontWeight: 'bold',
-  dropShadow: {
-    color: 0x000000,
-    blur: 2,
-    distance: 1,
-    alpha: 0.8,
-  },
-})
+const DEFAULT_TOKEN_RADIUS = 20
+const DEFAULT_LABEL_SIZE = 14
 
 const TYPE_COLORS: Record<Token['type'], number> = {
   player: 0x4a9eff,
@@ -24,6 +14,7 @@ interface TokenSprite {
   container: Container
   circle: Graphics
   label: Text
+  color: number
 }
 
 /**
@@ -33,9 +24,65 @@ interface TokenSprite {
 export class TokenLayer extends Container {
   private sprites = new Map<string, TokenSprite>()
   private isPlayerView = false
+  private radius = DEFAULT_TOKEN_RADIUS
+  private labelSize = DEFAULT_LABEL_SIZE
+  private labelsVisible = true
+  private hoveredId: string | null = null
+
+  private makeLabelStyle(): TextStyle {
+    return new TextStyle({
+      fontSize: this.labelSize,
+      fill: 0xffffff,
+      fontWeight: 'bold',
+      dropShadow: {
+        color: 0x000000,
+        blur: 2,
+        distance: 1,
+        alpha: 0.8,
+      },
+    })
+  }
 
   setPlayerView(value: boolean): void {
     this.isPlayerView = value
+  }
+
+  setRadius(r: number): void {
+    if (r === this.radius) return
+    this.radius = r
+    for (const sprite of this.sprites.values()) {
+      sprite.circle.clear()
+      sprite.circle.circle(0, 0, r).fill(sprite.color)
+      sprite.label.y = -(r + 10)
+    }
+  }
+
+  setLabelSize(size: number): void {
+    if (size === this.labelSize) return
+    this.labelSize = size
+    const style = this.makeLabelStyle()
+    for (const sprite of this.sprites.values()) {
+      sprite.label.style = style
+    }
+  }
+
+  setLabelsVisible(visible: boolean): void {
+    if (visible === this.labelsVisible) return
+    this.labelsVisible = visible
+    this.reconcileLabelVisibility()
+  }
+
+  /** Show a single token's label on hover when labels are globally hidden (DM only). */
+  setHoveredToken(id: string | null): void {
+    if (this.labelsVisible || id === this.hoveredId) return
+    this.hoveredId = id
+    this.reconcileLabelVisibility()
+  }
+
+  private reconcileLabelVisibility(): void {
+    for (const [id, sprite] of this.sprites) {
+      sprite.label.visible = this.labelsVisible || id === this.hoveredId
+    }
   }
 
   syncTokens(tokens: Token[]): void {
@@ -79,16 +126,16 @@ export class TokenLayer extends Container {
     const color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
 
     const circle = new Graphics()
-    circle.circle(0, 0, TOKEN_RADIUS).fill(color)
-    circle.circle(0, 0, TOKEN_RADIUS).stroke({ color: 0xffffff, width: 2 })
+    circle.circle(0, 0, this.radius).fill(color)
 
-    const label = new Text({ text: token.label, style: LABEL_STYLE })
+    const label = new Text({ text: token.label, style: this.makeLabelStyle() })
     label.anchor.set(0.5, 0.5)
-    label.y = TOKEN_RADIUS + 10
+    label.y = -(this.radius + 10)
+    label.visible = this.labelsVisible || token.id === this.hoveredId
 
     container.addChild(circle, label)
     this.addChild(container)
-    this.sprites.set(token.id, { container, circle, label })
+    this.sprites.set(token.id, { container, circle, label, color })
   }
 
   private updateSprite(token: Token): void {
@@ -96,10 +143,9 @@ export class TokenLayer extends Container {
     sprite.container.x = token.x
     sprite.container.y = token.y
 
-    const color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
+    sprite.color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
     sprite.circle.clear()
-    sprite.circle.circle(0, 0, TOKEN_RADIUS).fill(color)
-    sprite.circle.circle(0, 0, TOKEN_RADIUS).stroke({ color: 0xffffff, width: 2 })
+    sprite.circle.circle(0, 0, this.radius).fill(sprite.color)
 
     sprite.label.text = token.label
   }
@@ -118,7 +164,7 @@ export class TokenLayer extends Container {
     for (const [id, sprite] of this.sprites) {
       const dx = x - sprite.container.x
       const dy = y - sprite.container.y
-      if (Math.sqrt(dx * dx + dy * dy) <= TOKEN_RADIUS) return id
+      if (Math.sqrt(dx * dx + dy * dy) <= this.radius) return id
     }
     return null
   }

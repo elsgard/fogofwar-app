@@ -11,6 +11,9 @@ export interface FogOfWarAPI {
   addToken: (token: Token) => void
   updateToken: (token: Token) => void
   removeToken: (id: string) => void
+  setTokenRadius: (r: number) => void
+  setTokenLabelSize: (size: number) => void
+  setTokenLabelVisible: (visible: boolean) => void
   openPlayerWindow: () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void
 }

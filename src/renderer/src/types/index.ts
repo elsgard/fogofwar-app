@@ -28,6 +28,9 @@ export interface GameState {
   map: MapInfo | null
   fogOps: FogOp[]
   tokens: Token[]
+  tokenRadius: number
+  tokenLabelSize: number
+  tokenLabelVisible: boolean
 }
 
 // IPC channel names as a const object to share between main and preload
@@ -41,5 +44,8 @@ export const IPC = {
   UPDATE_TOKEN: 'game:update-token',
   REMOVE_TOKEN: 'game:remove-token',
   OPEN_PLAYER_WINDOW: 'game:open-player-window',
+  SET_TOKEN_RADIUS: 'game:set-token-radius',
+  SET_TOKEN_LABEL_SIZE: 'game:set-token-label-size',
+  SET_TOKEN_LABEL_VISIBLE: 'game:set-token-label-visible',
   STATE_UPDATE: 'game:state-update', // main → renderer broadcast
 } as const

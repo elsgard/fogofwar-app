@@ -4,6 +4,9 @@ const state: GameState = {
   map: null,
   fogOps: [],
   tokens: [],
+  tokenRadius: 20,
+  tokenLabelSize: 14,
+  tokenLabelVisible: true,
 }
 
 export function getState(): GameState {
@@ -49,4 +52,16 @@ export function updateToken(updated: Token): void {
 
 export function removeToken(id: string): void {
   state.tokens = state.tokens.filter((t) => t.id !== id)
+}
+
+export function setTokenRadius(r: number): void {
+  state.tokenRadius = r
+}
+
+export function setTokenLabelSize(size: number): void {
+  state.tokenLabelSize = size
+}
+
+export function setTokenLabelVisible(visible: boolean): void {
+  state.tokenLabelVisible = visible
 }

@@ -11,6 +11,9 @@ export function DMView(): React.JSX.Element {
     tokens,
     activeTool,
     brushRadius,
+    tokenRadius,
+    tokenLabelSize,
+    tokenLabelVisible,
     selectedTokenId,
     loadMap,
     resetFog,
@@ -19,6 +22,9 @@ export function DMView(): React.JSX.Element {
     updateToken,
     setActiveTool,
     setBrushRadius,
+    setTokenRadius,
+    setTokenLabelSize,
+    setTokenLabelVisible,
     setSelectedTokenId,
   } = useGameStore()
 
@@ -105,6 +111,34 @@ export function DMView(): React.JSX.Element {
             {/* Tokens section */}
             <section className="sidebar-section">
               <h3>Tokens</h3>
+              <label className="brush-label">
+                Token size: {tokenRadius}px
+                <input
+                  type="range"
+                  min={10}
+                  max={80}
+                  value={tokenRadius}
+                  onChange={(e) => setTokenRadius(Number(e.target.value))}
+                />
+              </label>
+              <label className="brush-label">
+                Label size: {tokenLabelSize}px
+                <input
+                  type="range"
+                  min={8}
+                  max={36}
+                  value={tokenLabelSize}
+                  onChange={(e) => setTokenLabelSize(Number(e.target.value))}
+                />
+              </label>
+              <label className="token-label-toggle">
+                <input
+                  type="checkbox"
+                  checked={tokenLabelVisible}
+                  onChange={(e) => setTokenLabelVisible(e.target.checked)}
+                />
+                Show labels
+              </label>
               <div className="token-form">
                 <input
                   type="text"

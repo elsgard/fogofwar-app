@@ -22,6 +22,9 @@ interface GameStore extends GameState {
   // Local-only UI actions
   setActiveTool: (tool: GameStore['activeTool']) => void
   setBrushRadius: (r: number) => void
+  setTokenRadius: (r: number) => void
+  setTokenLabelSize: (size: number) => void
+  setTokenLabelVisible: (visible: boolean) => void
   setSelectedTokenId: (id: string | null) => void
 }
 
@@ -34,6 +37,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // UI state
   activeTool: 'fog-reveal',
   brushRadius: 60,
+  tokenRadius: 20,
+  tokenLabelSize: 14,
+  tokenLabelVisible: true,
   selectedTokenId: null,
 
   applyState: (state) => set((s) => ({
@@ -49,6 +55,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
           : s.map,
       fogOps: state.fogOps,
       tokens: state.tokens,
+      tokenRadius: state.tokenRadius,
+      tokenLabelSize: state.tokenLabelSize,
+      tokenLabelVisible: state.tokenLabelVisible,
   })),
 
   loadMap: async () => {
@@ -116,5 +125,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setBrushRadius: (brushRadius) => set({ brushRadius }),
+  setTokenRadius: (tokenRadius) => {
+    window.api?.setTokenRadius(tokenRadius)
+    set({ tokenRadius })
+  },
+  setTokenLabelSize: (tokenLabelSize) => {
+    window.api?.setTokenLabelSize(tokenLabelSize)
+    set({ tokenLabelSize })
+  },
+  setTokenLabelVisible: (tokenLabelVisible) => {
+    window.api?.setTokenLabelVisible(tokenLabelVisible)
+    set({ tokenLabelVisible })
+  },
   setSelectedTokenId: (selectedTokenId) => set({ selectedTokenId }),
 }))

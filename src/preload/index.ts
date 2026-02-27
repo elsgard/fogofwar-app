@@ -23,6 +23,10 @@ const api = {
 
   removeToken: (id: string): void => ipcRenderer.send(IPC.REMOVE_TOKEN, id),
 
+  setTokenRadius: (r: number): void => ipcRenderer.send(IPC.SET_TOKEN_RADIUS, r),
+  setTokenLabelSize: (size: number): void => ipcRenderer.send(IPC.SET_TOKEN_LABEL_SIZE, size),
+  setTokenLabelVisible: (visible: boolean): void => ipcRenderer.send(IPC.SET_TOKEN_LABEL_VISIBLE, visible),
+
   openPlayerWindow: (): void => ipcRenderer.send(IPC.OPEN_PLAYER_WINDOW),
 
   onStateUpdate: (cb: (state: GameState) => void): (() => void) => {
