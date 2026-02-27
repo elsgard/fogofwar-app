@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { MapCanvas } from '../components/MapCanvas'
+import type { MapCanvasHandle } from '../components/MapCanvas'
 import { useGameStore } from '../store/gameStore'
 import type { Token, TokenStatus } from '../types'
 
@@ -27,6 +28,10 @@ const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
 }
 
 export function DMView(): React.JSX.Element {
+  const mapCanvasRef = useRef<MapCanvasHandle>(null)
+  const menubarRef = useRef<HTMLElement>(null)
+  const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
+
   const {
     map,
     tokens,
@@ -48,6 +53,7 @@ export function DMView(): React.JSX.Element {
     setTokenLabelSize,
     setTokenLabelVisible,
     setSelectedTokenId,
+    setPlayerViewport,
     saveScene,
     loadScene,
   } = useGameStore()
@@ -55,6 +61,20 @@ export function DMView(): React.JSX.Element {
   const [newTokenLabel, setNewTokenLabel] = useState('')
   const [newTokenType, setNewTokenType] = useState<Token['type']>('player')
   const [newTokenColor, setNewTokenColor] = useState(TYPE_DEFAULT_COLORS.player)
+
+  // Close dropdown when clicking outside the menu bar
+  useEffect(() => {
+    if (!openMenu) return
+    const handler = (e: MouseEvent): void => {
+      if (!menubarRef.current?.contains(e.target as Node)) setOpenMenu(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [openMenu])
+
+  function toggleMenu(id: typeof openMenu): void {
+    setOpenMenu((prev) => (prev === id ? null : id))
+  }
 
   function handleTypeChange(type: Token['type']): void {
     setNewTokenType(type)
@@ -99,36 +119,87 @@ export function DMView(): React.JSX.Element {
 
   return (
     <div className="dm-view">
+
+      {/* ── Menu bar ── */}
+      <nav className="menubar" ref={menubarRef}>
+        <span className="menubar-title">Fog of War</span>
+
+        {/* Session menu */}
+        <div className="menu-item">
+          <button
+            className={`menu-trigger ${openMenu === 'session' ? 'open' : ''}`}
+            onClick={() => toggleMenu('session')}
+          >
+            Session
+            {isDirty && <span className="dirty-indicator"> ●</span>}
+            {' '}▾
+          </button>
+          {openMenu === 'session' && (
+            <div className="menu-dropdown">
+              <button className="menu-dropdown-item" onClick={() => { saveScene(); setOpenMenu(null) }}>
+                Save…
+              </button>
+              <button className="menu-dropdown-item" onClick={() => { loadScene(); setOpenMenu(null) }}>
+                Load…
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Map menu */}
+        <div className="menu-item">
+          <button
+            className={`menu-trigger ${openMenu === 'map' ? 'open' : ''}`}
+            onClick={() => toggleMenu('map')}
+          >
+            Map ▾
+          </button>
+          {openMenu === 'map' && (
+            <div className="menu-dropdown">
+              <button className="menu-dropdown-item" onClick={() => { loadMap(); setOpenMenu(null) }}>
+                {map ? 'Change Map…' : 'Load Map…'}
+              </button>
+              {map && (
+                <>
+                  <div className="menu-dropdown-divider" />
+                  <span className="menu-dropdown-label">{map.name}</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Player menu */}
+        <div className="menu-item">
+          <button
+            className={`menu-trigger ${openMenu === 'player' ? 'open' : ''}`}
+            onClick={() => toggleMenu('player')}
+          >
+            Player ▾
+          </button>
+          {openMenu === 'player' && (
+            <div className="menu-dropdown">
+              <button
+                className="menu-dropdown-item"
+                onClick={() => { window.api.openPlayerWindow(); setOpenMenu(null) }}
+              >
+                Open Player Window
+              </button>
+              <button
+                className="menu-dropdown-item"
+                onClick={() => { window.open(`${window.location.origin}?role=player`); setOpenMenu(null) }}
+              >
+                Open in Browser
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
+
       {/* ── Left sidebar ── */}
       <aside className="sidebar">
-        <h2 className="sidebar-title">Fog of War</h2>
 
-        {/* Session section */}
-        <section className="sidebar-section">
-          <h3>
-            Session
-            {isDirty && <span className="dirty-indicator" title="Unsaved changes"> ●</span>}
-          </h3>
-          <div className="session-buttons">
-            <button className="btn btn-primary" onClick={saveScene}>
-              Save…
-            </button>
-            <button className="btn btn-secondary" onClick={loadScene}>
-              Load…
-            </button>
-          </div>
-        </section>
-
-        {/* Map section */}
-        <section className="sidebar-section">
-          <h3>Map</h3>
-          <button className="btn btn-primary" onClick={loadMap}>
-            {map ? 'Change Map…' : 'Load Map…'}
-          </button>
-          {map && <p className="map-name">{map.name}</p>}
-        </section>
-
-        {/* Tools section */}
+        {/* Tools + Tokens + Viewport (only when map loaded) */}
         {map && (
           <>
             <section className="sidebar-section">
@@ -290,25 +361,32 @@ export function DMView(): React.JSX.Element {
                 ))}
               </ul>
             </section>
+
+            {/* Player viewport push/reset */}
+            <section className="sidebar-section">
+              <h3>Player View</h3>
+              <div className="session-buttons">
+                <button
+                  className="btn btn-primary"
+                  title="Push your current pan/zoom to the player view"
+                  onClick={() => {
+                    const vp = mapCanvasRef.current?.getCurrentViewport() ?? null
+                    setPlayerViewport(vp)
+                  }}
+                >
+                  Push View →
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  title="Reset player view to auto-fit"
+                  onClick={() => setPlayerViewport(null)}
+                >
+                  Reset View
+                </button>
+              </div>
+            </section>
           </>
         )}
-
-        {/* Player window */}
-        <section className="sidebar-section">
-          <h3>Player View</h3>
-          <button
-            className="btn btn-primary"
-            onClick={() => window.api.openPlayerWindow()}
-          >
-            Open Player Window
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => window.open(`${window.location.origin}?role=player`)}
-          >
-            Open in Browser
-          </button>
-        </section>
 
         {selectedToken && (
           <section className="sidebar-section">
@@ -325,7 +403,7 @@ export function DMView(): React.JSX.Element {
       {/* ── Map canvas (fills the whole window behind the sidebar) ── */}
       <div className="canvas-area">
         {map ? (
-          <MapCanvas isPlayerView={false} />
+          <MapCanvas ref={mapCanvasRef} isPlayerView={false} />
         ) : (
           <div className="empty-state">
             <p>Load a map to get started.</p>

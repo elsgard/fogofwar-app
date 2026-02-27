@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { FogOp, Token, MapInfo, GameState } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport } from '../renderer/src/types'
 
 export interface FogOfWarAPI {
   getState: () => Promise<GameState>
@@ -16,6 +16,7 @@ export interface FogOfWarAPI {
   setTokenLabelVisible: (visible: boolean) => void
   saveScene: () => Promise<{ success: boolean; error?: string }>
   loadScene: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>
+  setPlayerViewport: (vp: PlayerViewport | null) => void
   openPlayerWindow: () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void
 }

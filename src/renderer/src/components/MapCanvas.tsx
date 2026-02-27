@@ -1,16 +1,23 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { Application, Container, Graphics } from 'pixi.js'
 import { MapLayer } from '../pixi/MapLayer'
 import { FogLayer } from '../pixi/FogLayer'
 import { TokenLayer } from '../pixi/TokenLayer'
 import { useGameStore } from '../store/gameStore'
-import type { FogOp } from '../types'
+import type { FogOp, PlayerViewport } from '../types'
 
 interface Props {
   isPlayerView?: boolean
 }
 
-export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
+export interface MapCanvasHandle {
+  getCurrentViewport: () => PlayerViewport | null
+}
+
+export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
+  { isPlayerView = false }: Props,
+  ref
+): React.JSX.Element {
   const canvasRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
 
@@ -268,6 +275,38 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
     world.y = (availH - mapLayer.mapHeight * scale) / 2
   }, [SIDEBAR_W])
 
+  // ── Expose getCurrentViewport to parent (DM only) ─────────────────────────
+  useImperativeHandle(ref, () => ({
+    getCurrentViewport: () => {
+      const world = worldRef.current
+      const app = appRef.current
+      if (!world || !app) return null
+      const screenCX = SIDEBAR_W + (app.screen.width - SIDEBAR_W) / 2
+      const screenCY = app.screen.height / 2
+      return {
+        x: (screenCX - world.x) / world.scale.x,
+        y: (screenCY - world.y) / world.scale.y,
+        scale: world.scale.x,
+      }
+    },
+  }), [SIDEBAR_W])
+
+  // ── Apply pushed player viewport (player view only) ───────────────────────
+  const playerViewport = useGameStore((s) => s.playerViewport)
+  useEffect(() => {
+    if (!isPlayerView) return
+    const world = worldRef.current
+    const app = appRef.current
+    if (!world || !app) return
+    if (!playerViewport) {
+      fitWorld()
+    } else {
+      world.scale.set(playerViewport.scale)
+      world.x = app.screen.width / 2 - playerViewport.x * playerViewport.scale
+      world.y = app.screen.height / 2 - playerViewport.y * playerViewport.scale
+    }
+  }, [playerViewport, isPlayerView, fitWorld])
+
   // ── Coordinate helpers ───────────────────────────────────────────────────
   const toMapCoords = useCallback((e: React.PointerEvent): { x: number; y: number } => {
     const world = worldRef.current
@@ -481,7 +520,7 @@ export function MapCanvas({ isPlayerView = false }: Props): React.JSX.Element {
       onWheel={onWheel}
     />
   )
-}
+})
 
 function getCursor(tool: string, isPlayerView: boolean): string {
   if (isPlayerView) return 'default'

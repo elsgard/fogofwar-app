@@ -26,6 +26,12 @@ export interface MapInfo {
   height: number // natural image height in pixels
 }
 
+export interface PlayerViewport {
+  x: number
+  y: number
+  scale: number
+}
+
 export interface GameState {
   map: MapInfo | null
   fogOps: FogOp[]
@@ -33,6 +39,7 @@ export interface GameState {
   tokenRadius: number
   tokenLabelSize: number
   tokenLabelVisible: boolean
+  playerViewport: PlayerViewport | null
 }
 
 export interface SaveFile {
@@ -44,6 +51,7 @@ export interface SaveFile {
   tokenRadius: number
   tokenLabelSize: number
   tokenLabelVisible: boolean
+  playerViewport: PlayerViewport | null
 }
 
 // IPC channel names as a const object to share between main and preload
@@ -60,6 +68,7 @@ export const IPC = {
   SET_TOKEN_RADIUS: 'game:set-token-radius',
   SET_TOKEN_LABEL_SIZE: 'game:set-token-label-size',
   SET_TOKEN_LABEL_VISIBLE: 'game:set-token-label-visible',
+  SET_PLAYER_VIEWPORT: 'game:set-player-viewport',
   SAVE_SCENE: 'game:save-scene',
   LOAD_SCENE: 'game:load-scene',
   STATE_UPDATE: 'game:state-update', // main → renderer broadcast

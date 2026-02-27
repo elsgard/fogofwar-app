@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GameState, FogOp, Token, MapInfo } from '../types'
+import type { GameState, FogOp, Token, MapInfo, PlayerViewport } from '../types'
 
 interface GameStore extends GameState {
   // Local UI state
@@ -26,6 +26,7 @@ interface GameStore extends GameState {
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void
   setSelectedTokenId: (id: string | null) => void
+  setPlayerViewport: (vp: PlayerViewport | null) => void
 
   // Persistence
   isDirty: boolean
@@ -38,6 +39,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   map: null,
   fogOps: [],
   tokens: [],
+  playerViewport: null,
 
   // UI state
   activeTool: 'fog-reveal',
@@ -64,6 +66,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       tokenRadius: state.tokenRadius,
       tokenLabelSize: state.tokenLabelSize,
       tokenLabelVisible: state.tokenLabelVisible,
+      playerViewport: state.playerViewport ?? null,
   })),
 
   loadMap: async () => {
@@ -143,6 +146,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ tokenLabelVisible, isDirty: true })
   },
   setSelectedTokenId: (selectedTokenId) => set({ selectedTokenId }),
+  setPlayerViewport: (vp) => {
+    window.api?.setPlayerViewport(vp)
+    set({ playerViewport: vp })
+  },
 
   saveScene: async () => {
     const result = await window.api.saveScene()

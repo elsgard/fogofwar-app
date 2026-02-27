@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, GameState, SaveFile } from '../renderer/src/types'
+import type { FogOp, GameState, SaveFile, PlayerViewport } from '../renderer/src/types'
 import * as gs from './gameState'
 
 let dmWindow: BrowserWindow | null = null
@@ -280,6 +280,11 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.SET_PLAYER_VIEWPORT, (_, vp: PlayerViewport | null) => {
+    gs.setPlayerViewport(vp)
+    broadcastState()
+  })
+
   ipcMain.handle(IPC.SAVE_SCENE, async (): Promise<{ success: boolean; error?: string }> => {
     const { filePath } = await dialog.showSaveDialog({
       title: 'Save Scene',
@@ -298,6 +303,7 @@ app.whenReady().then(() => {
       tokenRadius: state.tokenRadius,
       tokenLabelSize: state.tokenLabelSize,
       tokenLabelVisible: state.tokenLabelVisible,
+      playerViewport: state.playerViewport,
     }
     await writeFile(filePath, JSON.stringify(save), 'utf-8')
     return { success: true }
