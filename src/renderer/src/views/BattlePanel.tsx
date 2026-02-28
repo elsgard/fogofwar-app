@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useGameStore } from '../store/gameStore'
 import type { Battle, Combatant, Effect, BattleLogEntry, BattleLogKind } from '../types'
 import './BattlePanel.css'
@@ -32,23 +33,31 @@ const EFFECT_COLORS = ['#a855f7', '#f59e0b', '#4caf50', '#4a9eff', '#e53935', '#
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 interface EffectPopoverProps {
+  anchorRef: React.RefObject<HTMLButtonElement | null>
   onAdd: (name: string, duration: number | null, color: string) => void
   onClose: () => void
 }
 
-function EffectPopover({ onAdd, onClose }: EffectPopoverProps): React.JSX.Element {
+function EffectPopover({ anchorRef, onAdd, onClose }: EffectPopoverProps): React.JSX.Element {
   const [name, setName] = useState('')
   const [duration, setDuration] = useState('')
   const [color, setColor] = useState(EFFECT_COLORS[0])
   const ref = useRef<HTMLDivElement>(null)
 
+  const pos = useRef({ top: 0, right: 0 })
+  if (anchorRef.current) {
+    const rect = anchorRef.current.getBoundingClientRect()
+    pos.current = { top: rect.bottom + 4, right: window.innerWidth - rect.right }
+  }
+
   useEffect(() => {
     const handler = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      if (ref.current && !ref.current.contains(e.target as Node) &&
+          !anchorRef.current?.contains(e.target as Node)) onClose()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
+  }, [onClose, anchorRef])
 
   function submit(): void {
     if (!name.trim()) return
@@ -57,8 +66,10 @@ function EffectPopover({ onAdd, onClose }: EffectPopoverProps): React.JSX.Elemen
     onClose()
   }
 
-  return (
-    <div className="effect-popover" ref={ref}>
+  return createPortal(
+    <div className="effect-popover" ref={ref}
+      style={{ position: 'fixed', top: pos.current.top, right: pos.current.right }}
+    >
       <input
         autoFocus
         placeholder="Effect name…"
@@ -85,7 +96,8 @@ function EffectPopover({ onAdd, onClose }: EffectPopoverProps): React.JSX.Elemen
       <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={submit}>
         Add Effect
       </button>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -101,6 +113,7 @@ function CombatantRow({ combatant: c, tokenColor, round, onUpdate, onRemove }: C
   const [editingHp, setEditingHp] = useState(false)
   const [hpInput, setHpInput] = useState('')
   const [showEffectPopover, setShowEffectPopover] = useState(false)
+  const effectButtonRef = useRef<HTMLButtonElement>(null)
 
   function commitHp(): void {
     setEditingHp(false)
@@ -187,6 +200,7 @@ function CombatantRow({ combatant: c, tokenColor, round, onUpdate, onRemove }: C
 
       <div className="combatant-row-actions" style={{ position: 'relative' }}>
         <button
+          ref={effectButtonRef}
           className="btn-icon"
           title="Add effect"
           onClick={() => setShowEffectPopover((v) => !v)}
@@ -198,7 +212,7 @@ function CombatantRow({ combatant: c, tokenColor, round, onUpdate, onRemove }: C
         >{c.isVisible ? '👁' : '🚫'}</button>
         <button className="btn-icon remove" title="Remove" onClick={() => onRemove(c.id)}>✕</button>
         {showEffectPopover && (
-          <EffectPopover onAdd={addEffect} onClose={() => setShowEffectPopover(false)} />
+          <EffectPopover anchorRef={effectButtonRef} onAdd={addEffect} onClose={() => setShowEffectPopover(false)} />
         )}
       </div>
     </div>

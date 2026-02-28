@@ -337,8 +337,6 @@
 /* ── Effect popover ── */
 
 .effect-popover {
-  position: absolute;
-  right: 44px;
   background: var(--bg-sidebar);
   border: 1px solid var(--border);
   border-radius: var(--radius);
