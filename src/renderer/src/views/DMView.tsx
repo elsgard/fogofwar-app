@@ -74,6 +74,27 @@ export function DMView(): React.JSX.Element {
   const [newTokenHpMax, setNewTokenHpMax] = useState('')
   const [newTokenAc, setNewTokenAc] = useState('')
 
+  const selectedToken = tokens.find((t) => t.id === selectedTokenId) ?? null
+
+  // Edit state for selected token
+  const [editLabel, setEditLabel] = useState('')
+  const [editType, setEditType] = useState<Token['type']>('player')
+  const [editColor, setEditColor] = useState(TYPE_DEFAULT_COLORS.player)
+  const [editHp, setEditHp] = useState('')
+  const [editHpMax, setEditHpMax] = useState('')
+  const [editAc, setEditAc] = useState('')
+
+  // Sync edit fields when a different token is selected
+  useEffect(() => {
+    if (!selectedToken) return
+    setEditLabel(selectedToken.label)
+    setEditType(selectedToken.type)
+    setEditColor(selectedToken.color)
+    setEditHp(selectedToken.hp != null ? String(selectedToken.hp) : '')
+    setEditHpMax(selectedToken.hpMax != null ? String(selectedToken.hpMax) : '')
+    setEditAc(selectedToken.ac != null ? String(selectedToken.ac) : '')
+  }, [selectedToken?.id])
+
   // Tool keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
@@ -115,8 +136,6 @@ export function DMView(): React.JSX.Element {
     setNewTokenColor(TYPE_DEFAULT_COLORS[type])
   }
 
-  const selectedToken = tokens.find((t) => t.id === selectedTokenId) ?? null
-
   function handleAddToken(): void {
     if (!map || !newTokenLabel.trim()) return
     addToken({
@@ -155,6 +174,31 @@ export function DMView(): React.JSX.Element {
   function handleCycleStatus(token: Token): void {
     const current: TokenStatus = token.status ?? 'alive'
     updateToken({ ...token, status: STATUS_CYCLE[current] })
+  }
+
+  function handleCopyToken(token: Token): void {
+    addToken({
+      type: token.type,
+      label: token.label,
+      color: token.color,
+      x: token.x + 40,
+      y: token.y + 40,
+      visibleToPlayers: token.visibleToPlayers,
+      status: token.status,
+      hp: token.hp ?? null,
+      hpMax: token.hpMax ?? null,
+      ac: token.ac ?? null,
+    })
+  }
+
+  function saveEditStats(): void {
+    if (!selectedToken) return
+    updateToken({
+      ...selectedToken,
+      hp: editHp.trim() ? parseInt(editHp, 10) : null,
+      hpMax: editHpMax.trim() ? parseInt(editHpMax, 10) : null,
+      ac: editAc.trim() ? parseInt(editAc, 10) : null,
+    })
   }
 
   return (
@@ -469,6 +513,13 @@ export function DMView(): React.JSX.Element {
                       {token.visibleToPlayers ? '👁' : '🚫'}
                     </button>
                     <button
+                      className="btn-icon"
+                      title="Duplicate token"
+                      onClick={(e) => { e.stopPropagation(); handleCopyToken(token) }}
+                    >
+                      ❐
+                    </button>
+                    <button
                       className="btn-icon remove"
                       title="Remove token"
                       onClick={(e) => { e.stopPropagation(); removeToken(token.id) }}
@@ -508,12 +559,65 @@ export function DMView(): React.JSX.Element {
 
         {selectedToken && (
           <section className="sidebar-section">
-            <h3>Selected: {selectedToken.label}</h3>
-            <p className="hint">Drag the token on the map to move it.</p>
-            <p className="hint">Type: {selectedToken.type}</p>
-            <p className="hint">
-              Position: ({Math.round(selectedToken.x)}, {Math.round(selectedToken.y)})
-            </p>
+            <h3>Edit Token</h3>
+            <div className="token-form">
+              <input
+                type="text"
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+                onBlur={() => { if (editLabel.trim()) updateToken({ ...selectedToken, label: editLabel.trim() }) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && editLabel.trim()) updateToken({ ...selectedToken, label: editLabel.trim() }) }}
+              />
+              <div className="token-type-radios">
+                {(['player', 'npc', 'enemy'] as const).map((type) => (
+                  <label
+                    key={type}
+                    className={`token-type-radio ${editType === type ? 'token-type-active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="edit-token-type"
+                      value={type}
+                      checked={editType === type}
+                      onChange={() => { setEditType(type); updateToken({ ...selectedToken, type }) }}
+                    />
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </label>
+                ))}
+              </div>
+              <div className="color-swatches">
+                {TOKEN_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    className={`swatch ${editColor === c ? 'swatch-active' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => { setEditColor(c); updateToken({ ...selectedToken, color: c }) }}
+                  />
+                ))}
+                <label
+                  className={`swatch swatch-picker ${!TOKEN_COLORS.includes(editColor) ? 'swatch-active' : ''}`}
+                  style={TOKEN_COLORS.includes(editColor) ? undefined : { background: editColor }}
+                  title="Custom color"
+                >
+                  <input
+                    type="color"
+                    value={editColor}
+                    onChange={(e) => { setEditColor(e.target.value); updateToken({ ...selectedToken, color: e.target.value }) }}
+                  />
+                </label>
+              </div>
+              <div className="token-stat-row">
+                <input type="number" placeholder="HP" value={editHp}
+                  onChange={(e) => setEditHp(e.target.value)} onBlur={saveEditStats} />
+                <input type="number" placeholder="Max HP" value={editHpMax}
+                  onChange={(e) => setEditHpMax(e.target.value)} onBlur={saveEditStats} />
+                <input type="number" placeholder="AC" value={editAc}
+                  onChange={(e) => setEditAc(e.target.value)} onBlur={saveEditStats} />
+              </div>
+              <p className="hint">
+                Position: ({Math.round(selectedToken.x)}, {Math.round(selectedToken.y)})
+              </p>
+            </div>
           </section>
         )}
       </aside>
