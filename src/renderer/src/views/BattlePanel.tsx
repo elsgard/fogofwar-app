@@ -479,9 +479,11 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
               }}
             >
               <option value="none">No token link</option>
-              {tokens.map((t) => (
-                <option key={t.id} value={t.id}>{t.label} ({t.type})</option>
-              ))}
+              {tokens
+                .filter((t) => !battle.combatants.some((c) => c.tokenId === t.id))
+                .map((t) => (
+                  <option key={t.id} value={t.id}>{t.label} ({t.type})</option>
+                ))}
             </select>
             <label>
               <input type="checkbox" checked={newIsPlayer} onChange={(e) => setNewIsPlayer(e.target.checked)} />
