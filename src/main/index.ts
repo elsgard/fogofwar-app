@@ -134,6 +134,13 @@ function createDMWindow(): void {
 
   dmWindow.on('ready-to-show', () => dmWindow!.show())
 
+  // Allow DevTools to be toggled with F12 in all builds (including production)
+  dmWindow.webContents.on('before-input-event', (_, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      dmWindow!.webContents.toggleDevTools()
+    }
+  })
+
   dmWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -350,6 +357,13 @@ app.whenReady().then(() => {
 
   ipcMain.on(IPC.OPEN_PLAYER_WINDOW, () => {
     createPlayerWindow()
+  })
+
+  ipcMain.on(IPC.OPEN_IN_BROWSER, () => {
+    const url = is.dev && process.env['ELECTRON_RENDERER_URL']
+      ? `${process.env['ELECTRON_RENDERER_URL']}?role=player`
+      : `http://localhost:${SSE_PORT}?role=player`
+    shell.openExternal(url)
   })
 
   createDMWindow()

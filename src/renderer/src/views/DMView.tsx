@@ -187,7 +187,7 @@ export function DMView(): React.JSX.Element {
               </button>
               <button
                 className="menu-dropdown-item"
-                onClick={() => { window.open(`${window.location.origin}?role=player`); setOpenMenu(null) }}
+                onClick={() => { window.api.openInBrowser(); setOpenMenu(null) }}
               >
                 Open in Browser
               </button>

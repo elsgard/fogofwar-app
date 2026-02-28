@@ -18,6 +18,7 @@ export interface FogOfWarAPI {
   loadScene: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>
   setPlayerViewport: (vp: PlayerViewport | null) => void
   openPlayerWindow: () => void
+  openInBrowser: () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void
 }
 

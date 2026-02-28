@@ -38,6 +38,8 @@ const api = {
 
   openPlayerWindow: (): void => ipcRenderer.send(IPC.OPEN_PLAYER_WINDOW),
 
+  openInBrowser: (): void => ipcRenderer.send(IPC.OPEN_IN_BROWSER),
+
   onStateUpdate: (cb: (state: GameState) => void): (() => void) => {
     const handler = (_: Electron.IpcRendererEvent, state: GameState): void => cb(state)
     ipcRenderer.on(IPC.STATE_UPDATE, handler)

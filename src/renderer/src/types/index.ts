@@ -72,4 +72,5 @@ export const IPC = {
   SAVE_SCENE: 'game:save-scene',
   LOAD_SCENE: 'game:load-scene',
   STATE_UPDATE: 'game:state-update', // main → renderer broadcast
+  OPEN_IN_BROWSER: 'game:open-in-browser',
 } as const
