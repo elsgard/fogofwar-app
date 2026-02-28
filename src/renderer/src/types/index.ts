@@ -97,6 +97,11 @@ export interface Battle {
   createdAt: string            // ISO
 }
 
+export interface MonsterReveal {
+  imgUrl: string
+  name: string
+}
+
 export interface GameState {
   map: MapInfo | null
   fogOps: FogOp[]
@@ -106,6 +111,7 @@ export interface GameState {
   tokenLabelVisible: boolean
   playerViewport: PlayerViewport | null
   battle: Battle | null
+  monsterReveal: MonsterReveal | null
 }
 
 export interface PartyFile {
@@ -150,4 +156,5 @@ export const IPC = {
   SET_BATTLE: 'game:set-battle',
   SAVE_PARTY: 'game:save-party',
   LOAD_PARTY: 'game:load-party',
+  SET_MONSTER_REVEAL: 'game:set-monster-reveal',
 } as const

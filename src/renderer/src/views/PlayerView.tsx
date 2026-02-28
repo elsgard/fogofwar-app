@@ -1,10 +1,12 @@
 import { MapCanvas } from '../components/MapCanvas'
 import { InitiativeStrip } from '../components/InitiativeStrip'
+import { MonsterRevealOverlay } from '../components/MonsterRevealOverlay'
 import { useGameStore } from '../store/gameStore'
 
 export function PlayerView(): React.JSX.Element {
   const map = useGameStore((s) => s.map)
   const battle = useGameStore((s) => s.battle)
+  const monsterReveal = useGameStore((s) => s.monsterReveal)
 
   // Always mount MapCanvas so PixiJS (WebGL context + shaders) initialises
   // immediately while the player is waiting. If MapCanvas only mounted after
@@ -19,6 +21,13 @@ export function PlayerView(): React.JSX.Element {
         </div>
       )}
       {battle?.isActive && <InitiativeStrip battle={battle} />}
+      {monsterReveal && (
+        <MonsterRevealOverlay
+          name={monsterReveal.name}
+          imgUrl={monsterReveal.imgUrl}
+          topOffset={20}
+        />
+      )}
     </div>
   )
 }

@@ -74,6 +74,8 @@ export function DMView(): React.JSX.Element {
     setLaserColor,
     setPlayerViewport,
     setMonsters,
+    monsterReveal,
+    setMonsterReveal,
     saveScene,
     loadScene,
     saveParty,
@@ -97,6 +99,11 @@ export function DMView(): React.JSX.Element {
   const [editHp, setEditHp] = useState('')
   const [editHpMax, setEditHpMax] = useState('')
   const [editAc, setEditAc] = useState('')
+
+  // Auto-clear monster reveal when the character sheet modal is closed
+  useEffect(() => {
+    if (!viewSheet && monsterReveal) setMonsterReveal(null)
+  }, [viewSheet])
 
   // Sync edit fields when a different token is selected
   useEffect(() => {
@@ -758,6 +765,8 @@ export function DMView(): React.JSX.Element {
         <CharacterSheetModal
           sheet={viewSheet}
           onClose={() => setViewSheet(null)}
+          onShowToPlayers={() => setMonsterReveal({ imgUrl: viewSheet.imgUrl!, name: viewSheet.name })}
+          isShowing={!!monsterReveal && monsterReveal.imgUrl === viewSheet.imgUrl}
         />
       )}
 

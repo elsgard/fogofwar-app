@@ -3,9 +3,11 @@ import type { MonsterSheet } from '../types/monster'
 interface Props {
   sheet: MonsterSheet
   onClose: () => void
+  onShowToPlayers?: () => void  // undefined = no button shown
+  isShowing?: boolean           // true = currently shown to players
 }
 
-export function CharacterSheetModal({ sheet, onClose }: Props): React.JSX.Element {
+export function CharacterSheetModal({ sheet, onClose, onShowToPlayers, isShowing }: Props): React.JSX.Element {
   const abilities = [
     { label: 'STR', score: sheet.str, mod: sheet.strMod },
     { label: 'DEX', score: sheet.dex, mod: sheet.dexMod },
@@ -20,6 +22,16 @@ export function CharacterSheetModal({ sheet, onClose }: Props): React.JSX.Elemen
       <div className="dialog dialog-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <span>{sheet.name}</span>
+          {onShowToPlayers && sheet.imgUrl && (
+            <button
+              className={`btn btn-secondary ${isShowing ? 'btn-active' : ''}`}
+              style={{ fontSize: 11, padding: '3px 8px' }}
+              title={isShowing ? 'Currently shown to players' : 'Show image to players'}
+              onClick={onShowToPlayers}
+            >
+              {isShowing ? '👁 Showing' : '👁 Show to Players'}
+            </button>
+          )}
           <button className="btn-icon" onClick={onClose}>✕</button>
         </div>
         <div className="sheet-body">

@@ -392,6 +392,11 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.SET_MONSTER_REVEAL, (_, reveal) => {
+    gs.setMonsterReveal(reveal)
+    broadcastState()
+  })
+
   ipcMain.handle(IPC.SAVE_PARTY, async (_, tokens: PartyFile['tokens']): Promise<{ success: boolean; error?: string }> => {
     const { filePath } = await dialog.showSaveDialog({
       title: 'Export Party',

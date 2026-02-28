@@ -897,4 +897,53 @@ kbd {
 
 .sheet-section p { margin-bottom: 6px; font-size: 13px; line-height: 1.5; }
 .sheet-section em { color: var(--text-muted); }
+
+/* ── Monster reveal overlay ─────────────────────────────────────── */
+
+@keyframes slideInRight {
+  from { transform: translateX(calc(100% + 24px)); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.monster-reveal {
+  position: absolute;
+  right: 20px;
+  width: 480px;
+  z-index: 50;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sidebar);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  animation: slideInRight 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.monster-reveal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid var(--border);
+}
+
+.monster-reveal-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.monster-reveal-body {
+  padding: 8px;
+}
+
+.monster-reveal-img {
+  display: block;
+  width: 100%;
+  border-radius: calc(var(--radius) - 2px);
+  object-fit: contain;
+}
 .sheet-section strong { color: var(--text); }

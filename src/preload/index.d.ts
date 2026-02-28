@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal } from '../renderer/src/types'
 
 export interface FogOfWarAPI {
   getState: () => Promise<GameState>
@@ -20,6 +20,7 @@ export interface FogOfWarAPI {
   openPlayerWindow: () => void
   openInBrowser: () => void
   setBattle: (battle: Battle | null) => void
+  setMonsterReveal: (reveal: MonsterReveal | null) => void
   saveParty: (tokens: Token[]) => Promise<{ success: boolean; error?: string }>
   loadParty: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>
   sendLaserPointer: (pos: { x: number; y: number; radius: number; color: string } | null) => void

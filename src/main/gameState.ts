@@ -1,4 +1,4 @@
-import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle } from '../renderer/src/types'
+import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle, MonsterReveal } from '../renderer/src/types'
 
 const state: GameState = {
   map: null,
@@ -9,6 +9,7 @@ const state: GameState = {
   tokenLabelVisible: true,
   playerViewport: null,
   battle: null,
+  monsterReveal: null,
 }
 
 export function getState(): GameState {
@@ -74,6 +75,10 @@ export function setPlayerViewport(vp: PlayerViewport | null): void {
 
 export function setBattle(battle: Battle | null): void {
   state.battle = battle
+}
+
+export function setMonsterReveal(reveal: MonsterReveal | null): void {
+  state.monsterReveal = reveal
 }
 
 export function importParty(tokens: Token[]): void {

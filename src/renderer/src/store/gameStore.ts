@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle } from '../types'
+import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal } from '../types'
 import type { MonsterEntry } from '../types/monster'
 
 interface GameStore extends GameState {
@@ -37,6 +37,7 @@ interface GameStore extends GameState {
   setLaserColor: (color: string) => void
   setPlayerViewport: (vp: PlayerViewport | null) => void
   setBattle: (battle: Battle | null) => void
+  setMonsterReveal: (reveal: MonsterReveal | null) => void
 
   // Persistence
   isDirty: boolean
@@ -55,6 +56,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // GameState extras
   battle: null,
+  monsterReveal: null,
 
   // DM-local state (not broadcast)
   monsters: null,
@@ -94,6 +96,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : state.battle.log.length === 0 && s.battle?.id === state.battle.id
           ? { ...state.battle, log: s.battle!.log }
           : state.battle,
+      monsterReveal: state.monsterReveal ?? null,
   })),
 
   loadMap: async () => {
@@ -179,6 +182,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setBattle: (battle) => {
     window.api?.setBattle(battle)
     set({ battle, isDirty: true })
+  },
+  setMonsterReveal: (reveal) => {
+    window.api?.setMonsterReveal(reveal)
+    set({ monsterReveal: reveal })
   },
   setPlayerViewport: (vp) => {
     window.api?.setPlayerViewport(vp)
