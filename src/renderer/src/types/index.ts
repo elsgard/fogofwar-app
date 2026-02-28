@@ -102,6 +102,12 @@ export interface GameState {
   battle: Battle | null
 }
 
+export interface PartyFile {
+  version: string
+  savedAt: string // ISO timestamp
+  tokens: Token[]
+}
+
 export interface SaveFile {
   version: string
   savedAt: string // ISO timestamp
@@ -136,4 +142,6 @@ export const IPC = {
   OPEN_IN_BROWSER: 'game:open-in-browser',
   LASER_POINTER: 'game:laser-pointer',
   SET_BATTLE: 'game:set-battle',
+  SAVE_PARTY: 'game:save-party',
+  LOAD_PARTY: 'game:load-party',
 } as const

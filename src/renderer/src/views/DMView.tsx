@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MapCanvas } from '../components/MapCanvas'
 import type { MapCanvasHandle } from '../components/MapCanvas'
 import { BattlePanel } from './BattlePanel'
+import { ExportPartyDialog } from '../components/ExportPartyDialog'
 import { useGameStore } from '../store/gameStore'
 import type { Token, TokenStatus } from '../types'
 
@@ -35,6 +36,7 @@ export function DMView(): React.JSX.Element {
   const menubarRef = useRef<HTMLElement>(null)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | 'battle' | null>(null)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
+  const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
 
   const {
     map,
@@ -65,6 +67,8 @@ export function DMView(): React.JSX.Element {
     setPlayerViewport,
     saveScene,
     loadScene,
+    saveParty,
+    loadParty,
   } = useGameStore()
 
   const [newTokenLabel, setNewTokenLabel] = useState('')
@@ -222,10 +226,17 @@ export function DMView(): React.JSX.Element {
           {openMenu === 'session' && (
             <div className="menu-dropdown">
               <button className="menu-dropdown-item" onClick={() => { saveScene(); setOpenMenu(null) }}>
-                Save…
+                Save Scene…
               </button>
               <button className="menu-dropdown-item" onClick={() => { loadScene(); setOpenMenu(null) }}>
-                Load…
+                Load Scene…
+              </button>
+              <div className="menu-dropdown-divider" />
+              <button className="menu-dropdown-item" onClick={() => { setShowExportPartyDialog(true); setOpenMenu(null) }}>
+                Export Party…
+              </button>
+              <button className="menu-dropdown-item" onClick={() => { loadParty(); setOpenMenu(null) }}>
+                Import Party…
               </button>
             </div>
           )}
@@ -624,6 +635,14 @@ export function DMView(): React.JSX.Element {
 
       {/* ── Battle panel (right side overlay) ── */}
       {showBattlePanel && <BattlePanel onClose={() => setShowBattlePanel(false)} />}
+
+      {showExportPartyDialog && (
+        <ExportPartyDialog
+          tokens={tokens}
+          onExport={(selected) => { saveParty(selected); setShowExportPartyDialog(false) }}
+          onClose={() => setShowExportPartyDialog(false)}
+        />
+      )}
 
       {/* ── Map canvas (fills the whole window behind the sidebar) ── */}
       <div className="canvas-area">

@@ -20,6 +20,8 @@ export interface FogOfWarAPI {
   openPlayerWindow: () => void
   openInBrowser: () => void
   setBattle: (battle: Battle | null) => void
+  saveParty: (tokens: Token[]) => Promise<{ success: boolean; error?: string }>
+  loadParty: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>
   sendLaserPointer: (pos: { x: number; y: number; radius: number; color: string } | null) => void
   onLaserPointer: (cb: (pos: { x: number; y: number; radius: number; color: string } | null) => void) => () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void

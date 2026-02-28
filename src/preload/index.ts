@@ -42,6 +42,12 @@ const api = {
 
   setBattle: (battle: Battle | null): void => ipcRenderer.send(IPC.SET_BATTLE, battle),
 
+  saveParty: (tokens: Token[]): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.SAVE_PARTY, tokens),
+
+  loadParty: (): Promise<{ success: boolean; cancelled?: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.LOAD_PARTY),
+
   sendLaserPointer: (pos: { x: number; y: number } | null): void =>
     ipcRenderer.send(IPC.LASER_POINTER, pos),
 

@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, GameState, SaveFile, PlayerViewport, Battle } from '../renderer/src/types'
+import type { FogOp, GameState, SaveFile, PartyFile, PlayerViewport, Battle } from '../renderer/src/types'
 import * as gs from './gameState'
 
 let dmWindow: BrowserWindow | null = null
@@ -390,6 +390,62 @@ app.whenReady().then(() => {
   ipcMain.on(IPC.SET_BATTLE, (_, battle: Battle | null) => {
     gs.setBattle(battle)
     broadcastState()
+  })
+
+  ipcMain.handle(IPC.SAVE_PARTY, async (_, tokens: PartyFile['tokens']): Promise<{ success: boolean; error?: string }> => {
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Export Party',
+      defaultPath: 'party.fowparty',
+      filters: [{ name: 'Fog of War Party', extensions: ['fowparty'] }],
+    })
+    if (!filePath) return { success: false }
+
+    const party: PartyFile = {
+      version: app.getVersion(),
+      savedAt: new Date().toISOString(),
+      tokens,
+    }
+    await writeFile(filePath, JSON.stringify(party), 'utf-8')
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.LOAD_PARTY, async (): Promise<{ success: boolean; cancelled?: boolean; error?: string }> => {
+    const { filePaths } = await dialog.showOpenDialog({
+      title: 'Import Party',
+      filters: [{ name: 'Fog of War Party', extensions: ['fowparty'] }],
+      properties: ['openFile'],
+    })
+    if (!filePaths.length) return { success: false, cancelled: true }
+
+    let party: PartyFile
+    try {
+      const raw = await readFile(filePaths[0], 'utf-8')
+      party = JSON.parse(raw) as PartyFile
+    } catch {
+      return { success: false, error: 'Could not read file.' }
+    }
+
+    const minorVersion = (v: string): string => v.split('.').slice(0, 2).join('.')
+    const appMinor = minorVersion(app.getVersion())
+    const fileMinor = minorVersion(party.version ?? '')
+    if (fileMinor !== appMinor) {
+      const { response } = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Version mismatch',
+        message: `This party file was created with version ${party.version}, but the app is version ${app.getVersion()}. It may not load correctly.`,
+        buttons: ['Import anyway', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+      })
+      if (response === 1) return { success: false, cancelled: true }
+    }
+
+    // Remap all token IDs to avoid conflicts with existing tokens
+    const { randomUUID } = await import('crypto')
+    const remapped = party.tokens.map((t) => ({ ...t, id: randomUUID() }))
+    gs.importParty(remapped)
+    broadcastState()
+    return { success: true }
   })
 
   ipcMain.on(IPC.OPEN_IN_BROWSER, () => {

@@ -37,6 +37,8 @@ interface GameStore extends GameState {
   isDirty: boolean
   saveScene: () => Promise<void>
   loadScene: () => Promise<void>
+  saveParty: (tokens: Token[]) => Promise<void>
+  loadParty: () => Promise<void>
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -190,5 +192,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (result.error) alert(`Load failed: ${result.error}`)
     else set({ isDirty: false })
     // State itself arrives via the broadcastState() → onStateUpdate → applyState path
+  },
+
+  saveParty: async (tokens) => {
+    const result = await window.api.saveParty(tokens)
+    if (result.error) alert(`Export failed: ${result.error}`)
+  },
+
+  loadParty: async () => {
+    const result = await window.api.loadParty()
+    if (result.cancelled) return
+    if (result.error) alert(`Import failed: ${result.error}`)
+    else set({ isDirty: true })
+    // Tokens arrive via broadcastState() → onStateUpdate → applyState path
   },
 }))

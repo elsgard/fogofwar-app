@@ -76,6 +76,10 @@ export function setBattle(battle: Battle | null): void {
   state.battle = battle
 }
 
+export function importParty(tokens: Token[]): void {
+  state.tokens = [...state.tokens, ...tokens]
+}
+
 export function loadSave(save: SaveFile): void {
   state.map = save.map
   state.fogOps = save.fogOps
