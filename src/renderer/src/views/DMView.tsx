@@ -589,43 +589,45 @@ export function DMView(): React.JSX.Element {
                     />
                     <span className="token-label">{token.label}</span>
                     <span className="token-type">{token.type}</span>
-                    <button
-                      className={`btn-icon status-${token.status ?? 'alive'}`}
-                      title={`Status: ${token.status ?? 'alive'} (click to cycle)`}
-                      onClick={(e) => { e.stopPropagation(); handleCycleStatus(token) }}
-                    >
-                      {STATUS_ICON[token.status ?? 'alive']}
-                    </button>
-                    <button
-                      className={`btn-icon ${token.visibleToPlayers ? 'visible' : 'hidden'}`}
-                      title={token.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}
-                      onClick={(e) => { e.stopPropagation(); handleToggleVisibility(token) }}
-                    >
-                      {token.visibleToPlayers ? '👁' : '🚫'}
-                    </button>
-                    <button
-                      className="btn-icon"
-                      title="Duplicate token"
-                      onClick={(e) => { e.stopPropagation(); handleCopyToken(token) }}
-                    >
-                      ❐
-                    </button>
-                    {token.monsterSheet && (
+                    <div className="token-item-actions">
+                      <button
+                        className={`btn-icon status-${token.status ?? 'alive'}`}
+                        title={`Status: ${token.status ?? 'alive'} (click to cycle)`}
+                        onClick={(e) => { e.stopPropagation(); handleCycleStatus(token) }}
+                      >
+                        {STATUS_ICON[token.status ?? 'alive']}
+                      </button>
+                      <button
+                        className={`btn-icon ${token.visibleToPlayers ? 'visible' : 'hidden'}`}
+                        title={token.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}
+                        onClick={(e) => { e.stopPropagation(); handleToggleVisibility(token) }}
+                      >
+                        {token.visibleToPlayers ? '👁' : '🚫'}
+                      </button>
                       <button
                         className="btn-icon"
-                        title="View character sheet"
-                        onClick={(e) => { e.stopPropagation(); setViewSheet(token.monsterSheet!) }}
+                        title="Duplicate token"
+                        onClick={(e) => { e.stopPropagation(); handleCopyToken(token) }}
                       >
-                        📋
+                        ❐
                       </button>
-                    )}
-                    <button
-                      className="btn-icon remove"
-                      title="Remove token"
-                      onClick={(e) => { e.stopPropagation(); removeToken(token.id) }}
-                    >
-                      ✕
-                    </button>
+                      {token.monsterSheet && (
+                        <button
+                          className="btn-icon"
+                          title="View character sheet"
+                          onClick={(e) => { e.stopPropagation(); setViewSheet(token.monsterSheet!) }}
+                        >
+                          📋
+                        </button>
+                      )}
+                      <button
+                        className="btn-icon remove"
+                        title="Remove token"
+                        onClick={(e) => { e.stopPropagation(); removeToken(token.id) }}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

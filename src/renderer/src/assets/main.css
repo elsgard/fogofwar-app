@@ -589,6 +589,7 @@ kbd {
   border: 1px solid transparent;
   cursor: pointer;
   transition: background 0.15s;
+  position: relative;
 }
 .token-item:hover {
   background: var(--bg-hover);
@@ -619,6 +620,23 @@ kbd {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.token-item-actions {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+  background: var(--bg-hover);
+  border-radius: var(--radius);
+}
+.token-item:hover .token-item-actions,
+.token-selected .token-item-actions {
+  opacity: 1;
 }
 
 /* ── Misc ───────────────────────────────────────────────────────── */
