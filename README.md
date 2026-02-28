@@ -23,6 +23,8 @@ Built with Electron, React, TypeScript, and PixiJS v8 for WebGL rendering.
 - **Menu bar** — Session / Map / Player drop-down menus; hover to switch, click background to close
 - **Keyboard shortcuts** — `R` reveal, `H` hide, `T` move token, `P` pan, `L` laser; `Tab` cycles tools
 - **Monster database** — load a local D&D 5e monster JSON file; search by name to auto-fill token stats; view full character sheet (stat block + abilities + traits/actions) from the token editor or battle tracker
+- **Monster reveal** — DM sends a monster portrait to the player view from the character sheet; slides in from the right with the creature name; DM can dismiss it at any time
+- **Battle tracker** — initiative order with automatic tie-breaking; per-combatant HP / AC tracking; turn cycling with round counter; effects / conditions with round-duration countdowns; attack actions with roll logging; full battle log; links combatants to map tokens; party export / import (`.fowparty`)
 
 ---
 
@@ -93,8 +95,6 @@ The app supports an optional D&D 5e monster database loaded from a local JSON fi
 
 A community-maintained SRD dataset is available at:
 <https://gist.github.com/efortner/9b5a363df46d34d568c42b833344ba85>
-
-> **Legal note:** The D&D 5e SRD content is published under the Creative Commons Attribution 4.0 International License (CC BY 4.0) as of 2023. However, Wizards of the Coast has historically been protective of their IP. The app does not bundle or fetch this data automatically — the DM must supply their own copy.
 
 ### JSON format
 
