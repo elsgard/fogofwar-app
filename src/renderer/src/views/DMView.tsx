@@ -27,6 +27,8 @@ const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
   enemy: '#e53935',
 }
 
+const TOOL_CYCLE = ['fog-reveal', 'fog-hide', 'token-move', 'pan'] as const
+
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const menubarRef = useRef<HTMLElement>(null)
@@ -61,6 +63,27 @@ export function DMView(): React.JSX.Element {
   const [newTokenLabel, setNewTokenLabel] = useState('')
   const [newTokenType, setNewTokenType] = useState<Token['type']>('player')
   const [newTokenColor, setNewTokenColor] = useState(TYPE_DEFAULT_COLORS.player)
+
+  // Tool keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      switch (e.key.toLowerCase()) {
+        case 'r': setActiveTool('fog-reveal'); break
+        case 'h': setActiveTool('fog-hide'); break
+        case 't': setActiveTool('token-move'); break
+        case 'p': setActiveTool('pan'); break
+        case 'tab': {
+          e.preventDefault()
+          const idx = TOOL_CYCLE.indexOf(activeTool as typeof TOOL_CYCLE[number])
+          setActiveTool(TOOL_CYCLE[(idx + 1) % TOOL_CYCLE.length])
+          break
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTool, setActiveTool])
 
   // Close dropdown when clicking outside the menu bar
   useEffect(() => {
@@ -210,18 +233,19 @@ export function DMView(): React.JSX.Element {
               <div className="tool-grid">
                 {(
                   [
-                    { id: 'fog-reveal', label: 'Reveal Fog' },
-                    { id: 'fog-hide', label: 'Hide Fog' },
-                    { id: 'token-move', label: 'Move Token' },
-                    { id: 'pan', label: 'Pan / Zoom' },
+                    { id: 'fog-reveal', label: 'Reveal Fog', key: 'R' },
+                    { id: 'fog-hide', label: 'Hide Fog', key: 'H' },
+                    { id: 'token-move', label: 'Move Token', key: 'T' },
+                    { id: 'pan', label: 'Pan / Zoom', key: 'P' },
                   ] as const
                 ).map((tool) => (
                   <button
                     key={tool.id}
                     className={`btn ${activeTool === tool.id ? 'btn-active' : 'btn-secondary'}`}
                     onClick={() => setActiveTool(tool.id)}
+                    title={`${tool.label} (${tool.key})`}
                   >
-                    {tool.label}
+                    {tool.label} <kbd>{tool.key}</kbd>
                   </button>
                 ))}
               </div>
