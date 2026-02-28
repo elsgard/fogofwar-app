@@ -107,7 +107,7 @@ interface AttackPopoverProps {
   anchorRef: React.RefObject<HTMLButtonElement | null>
   attacker: Combatant
   targets: Combatant[]
-  onAttack: (targetId: string, damage: number) => void
+  onAttack: (targetId: string, damage: number | null) => void
   onClose: () => void
 }
 
@@ -131,10 +131,16 @@ function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: Atta
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose, anchorRef])
 
-  function submit(): void {
+  function submitHit(): void {
     const dmg = parseInt(damage, 10)
     if (!targetId || isNaN(dmg) || dmg <= 0) return
     onAttack(targetId, dmg)
+    onClose()
+  }
+
+  function submitMiss(): void {
+    if (!targetId) return
+    onAttack(targetId, null)
     onClose()
   }
 
@@ -155,12 +161,18 @@ function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: Atta
         min={1}
         value={damage}
         onChange={(e) => setDamage(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        onKeyDown={(e) => e.key === 'Enter' && submitHit()}
       />
-      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={submit}
-        disabled={!targetId || !damage.trim()}>
-        Apply Damage
-      </button>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button className="btn btn-primary" style={{ fontSize: 12, flex: 1 }} onClick={submitHit}
+          disabled={!targetId || !damage.trim()}>
+          Apply Damage
+        </button>
+        <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={submitMiss}
+          disabled={!targetId}>
+          Miss
+        </button>
+      </div>
     </div>,
     document.body
   )
@@ -431,11 +443,17 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
     setNoteText('')
   }
 
-  function handleAttack(targetId: string, damage: number): void {
+  function handleAttack(targetId: string, damage: number | null): void {
     if (!battle) return
     const attacker = battle.combatants.find((c) => c.isActive)
     const target = battle.combatants.find((c) => c.id === targetId)
     if (!attacker || !target) return
+
+    if (damage === null) {
+      const missLog = logEntry(battle.round, 'miss', `${attacker.name} attacked ${target.name} — miss!`, target.id)
+      setBattle({ ...battle, log: [...battle.log, missLog] })
+      return
+    }
 
     const newHp = target.hp !== null ? Math.max(0, target.hp - damage) : null
     const hpStr = newHp !== null ? ` (${newHp}/${target.hpMax ?? '?'} HP)` : ''

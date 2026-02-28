@@ -291,6 +291,7 @@
 }
 
 .log-entry.damage    { border-left-color: var(--danger); }
+.log-entry.miss      { border-left-color: #555; color: var(--text-muted); font-style: italic; }
 .log-entry.heal      { border-left-color: var(--success); }
 .log-entry.note      { border-left-color: #555; color: var(--text); font-style: italic; }
 .log-entry.round-start {

@@ -65,6 +65,7 @@ export type BattleLogKind =
   | 'turn-start'
   | 'damage'
   | 'heal'
+  | 'miss'
   | 'effect-added'
   | 'effect-expired'
   | 'death'
