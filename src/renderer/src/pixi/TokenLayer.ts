@@ -12,6 +12,7 @@ const TYPE_COLORS: Record<Token['type'], number> = {
 
 interface TokenSprite {
   container: Container
+  outline: Graphics
   circle: Graphics
   statusGraphic: Graphics
   statusLabel: Text
@@ -19,6 +20,9 @@ interface TokenSprite {
   color: number
   status: TokenStatus
 }
+
+const SELECTION_COLOR = 0x00e676
+const SELECTION_WIDTH = 3
 
 /**
  * Manages token sprites on the map.
@@ -31,6 +35,7 @@ export class TokenLayer extends Container {
   private labelSize = DEFAULT_LABEL_SIZE
   private labelsVisible = true
   private hoveredId: string | null = null
+  private selectedId: string | null = null
 
   private makeLabelStyle(): TextStyle {
     return new TextStyle({
@@ -53,9 +58,32 @@ export class TokenLayer extends Container {
   setRadius(r: number): void {
     if (r === this.radius) return
     this.radius = r
-    for (const sprite of this.sprites.values()) {
+    for (const [id, sprite] of this.sprites) {
       this.drawCircle(sprite)
+      this.drawOutline(sprite, id === this.selectedId)
       sprite.label.y = -(r + 10)
+    }
+  }
+
+  setSelectedToken(id: string | null): void {
+    if (id === this.selectedId) return
+    const prev = this.selectedId
+    this.selectedId = id
+    if (prev) {
+      const s = this.sprites.get(prev)
+      if (s) this.drawOutline(s, false)
+    }
+    if (id) {
+      const s = this.sprites.get(id)
+      if (s) this.drawOutline(s, true)
+    }
+  }
+
+  private drawOutline(sprite: TokenSprite, selected: boolean): void {
+    sprite.outline.clear()
+    if (selected) {
+      const r = this.radius + SELECTION_WIDTH + 1
+      sprite.outline.circle(0, 0, r).stroke({ color: SELECTION_COLOR, width: SELECTION_WIDTH })
     }
   }
 
@@ -161,6 +189,7 @@ export class TokenLayer extends Container {
     const color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
     const status: TokenStatus = token.status ?? 'alive'
 
+    const outline = new Graphics()
     const circle = new Graphics()
     const statusGraphic = new Graphics()
     const statusLabel = new Text({ text: '⚠', style: new TextStyle({ fontSize: this.radius * 1.4, fill: 0xf59e0b }) })
@@ -171,12 +200,13 @@ export class TokenLayer extends Container {
     label.y = -(this.radius + 10)
     label.visible = this.labelsVisible || token.id === this.hoveredId
 
-    container.addChild(circle, statusGraphic, statusLabel, label)
+    container.addChild(outline, circle, statusGraphic, statusLabel, label)
     this.addChild(container)
 
-    const sprite: TokenSprite = { container, circle, statusGraphic, statusLabel, label, color, status }
+    const sprite: TokenSprite = { container, outline, circle, statusGraphic, statusLabel, label, color, status }
     this.sprites.set(token.id, sprite)
     this.drawCircle(sprite)
+    this.drawOutline(sprite, token.id === this.selectedId)
   }
 
   private updateSprite(token: Token): void {

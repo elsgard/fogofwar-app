@@ -51,6 +51,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const tokenRadius = useGameStore((s) => s.tokenRadius)
   const tokenLabelSize = useGameStore((s) => s.tokenLabelSize)
   const tokenLabelVisible = useGameStore((s) => s.tokenLabelVisible)
+  const selectedTokenId = useGameStore((s) => s.selectedTokenId)
   const { commitStroke, updateToken, setSelectedTokenId } = useGameStore()
 
   // ── PixiJS init ──────────────────────────────────────────────────────────
@@ -237,6 +238,11 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   useEffect(() => {
     tokenLayerRef.current?.syncTokens(tokens)
   }, [tokens])
+
+  // ── Highlight selected token (DM only) ───────────────────────────────────
+  useEffect(() => {
+    if (!isPlayerView) tokenLayerRef.current?.setSelectedToken(selectedTokenId)
+  }, [selectedTokenId, isPlayerView])
 
   // ── React to token radius changes ────────────────────────────────────────
   useEffect(() => {
