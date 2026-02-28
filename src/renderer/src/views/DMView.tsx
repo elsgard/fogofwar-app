@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { MapCanvas } from '../components/MapCanvas'
 import type { MapCanvasHandle } from '../components/MapCanvas'
+import { BattlePanel } from './BattlePanel'
 import { useGameStore } from '../store/gameStore'
 import type { Token, TokenStatus } from '../types'
 
@@ -32,11 +33,13 @@ const TOOL_CYCLE = ['fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as c
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const menubarRef = useRef<HTMLElement>(null)
-  const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
+  const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | 'battle' | null>(null)
+  const [showBattlePanel, setShowBattlePanel] = useState(false)
 
   const {
     map,
     tokens,
+    battle,
     activeTool,
     brushRadius,
     tokenRadius,
@@ -221,6 +224,27 @@ export function DMView(): React.JSX.Element {
                 onClick={() => { window.api.openInBrowser(); setOpenMenu(null) }}
               >
                 Open in Browser
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Battle menu */}
+        <div className="menu-item" onClick={(e) => e.stopPropagation()}>
+          <button
+            className={`menu-trigger ${openMenu === 'battle' ? 'open' : ''}`}
+            onClick={() => toggleMenu('battle')}
+            onMouseEnter={() => { if (openMenu !== null) setOpenMenu('battle') }}
+          >
+            Battle{battle?.isActive ? ' ⚔' : ''} ▾
+          </button>
+          {openMenu === 'battle' && (
+            <div className="menu-dropdown">
+              <button
+                className="menu-dropdown-item"
+                onClick={() => { setShowBattlePanel(true); setOpenMenu(null) }}
+              >
+                {showBattlePanel ? 'Battle Panel (open)' : 'Open Battle Panel'}
               </button>
             </div>
           )}
@@ -464,6 +488,9 @@ export function DMView(): React.JSX.Element {
           </section>
         )}
       </aside>
+
+      {/* ── Battle panel (right side overlay) ── */}
+      {showBattlePanel && <BattlePanel onClose={() => setShowBattlePanel(false)} />}
 
       {/* ── Map canvas (fills the whole window behind the sidebar) ── */}
       <div className="canvas-area">

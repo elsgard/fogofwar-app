@@ -1,0 +1,40 @@
+.initiative-strip {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(26, 26, 46, 0.88);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  min-width: 180px;
+  max-width: 260px;
+  pointer-events: none;
+}
+
+.initiative-strip-header {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.initiative-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.initiative-entry.is-active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.initiative-entry-turn {
+  font-size: 11px;
+  width: 12px;
+  text-align: center;
+}

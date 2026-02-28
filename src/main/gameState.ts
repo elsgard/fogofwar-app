@@ -1,4 +1,4 @@
-import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport } from '../renderer/src/types'
+import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle } from '../renderer/src/types'
 
 const state: GameState = {
   map: null,
@@ -8,6 +8,7 @@ const state: GameState = {
   tokenLabelSize: 14,
   tokenLabelVisible: true,
   playerViewport: null,
+  battle: null,
 }
 
 export function getState(): GameState {
@@ -71,6 +72,10 @@ export function setPlayerViewport(vp: PlayerViewport | null): void {
   state.playerViewport = vp
 }
 
+export function setBattle(battle: Battle | null): void {
+  state.battle = battle
+}
+
 export function loadSave(save: SaveFile): void {
   state.map = save.map
   state.fogOps = save.fogOps
@@ -79,4 +84,5 @@ export function loadSave(save: SaveFile): void {
   state.tokenLabelSize = save.tokenLabelSize
   state.tokenLabelVisible = save.tokenLabelVisible
   state.playerViewport = save.playerViewport ?? null
+  state.battle = save.battle ?? null
 }

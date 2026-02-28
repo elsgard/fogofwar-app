@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle } from '../renderer/src/types'
 
 const api = {
   getState: (): Promise<GameState> => ipcRenderer.invoke(IPC.GET_STATE),
@@ -39,6 +39,8 @@ const api = {
   openPlayerWindow: (): void => ipcRenderer.send(IPC.OPEN_PLAYER_WINDOW),
 
   openInBrowser: (): void => ipcRenderer.send(IPC.OPEN_IN_BROWSER),
+
+  setBattle: (battle: Battle | null): void => ipcRenderer.send(IPC.SET_BATTLE, battle),
 
   sendLaserPointer: (pos: { x: number; y: number } | null): void =>
     ipcRenderer.send(IPC.LASER_POINTER, pos),

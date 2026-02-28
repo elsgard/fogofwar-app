@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GameState, FogOp, Token, MapInfo, PlayerViewport } from '../types'
+import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle } from '../types'
 
 interface GameStore extends GameState {
   // Local UI state
@@ -31,6 +31,7 @@ interface GameStore extends GameState {
   setLaserRadius: (r: number) => void
   setLaserColor: (color: string) => void
   setPlayerViewport: (vp: PlayerViewport | null) => void
+  setBattle: (battle: Battle | null) => void
 
   // Persistence
   isDirty: boolean
@@ -44,6 +45,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   fogOps: [],
   tokens: [],
   playerViewport: null,
+
+  // GameState extras
+  battle: null,
 
   // UI state
   activeTool: 'fog-reveal',
@@ -73,6 +77,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       tokenLabelSize: state.tokenLabelSize,
       tokenLabelVisible: state.tokenLabelVisible,
       playerViewport: state.playerViewport ?? null,
+      // SSE lite updates strip battle.log to keep payloads small on fog-op events.
+      // If incoming battle has the same id but an empty log, preserve the existing log.
+      battle: !state.battle
+        ? null
+        : state.battle.log.length === 0 && s.battle?.id === state.battle.id
+          ? { ...state.battle, log: s.battle!.log }
+          : state.battle,
   })),
 
   loadMap: async () => {
@@ -154,6 +165,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setSelectedTokenId: (selectedTokenId) => set({ selectedTokenId }),
   setLaserRadius: (laserRadius) => set({ laserRadius }),
   setLaserColor: (laserColor) => set({ laserColor }),
+  setBattle: (battle) => {
+    window.api?.setBattle(battle)
+    set({ battle, isDirty: true })
+  },
   setPlayerViewport: (vp) => {
     window.api?.setPlayerViewport(vp)
     set({ playerViewport: vp })

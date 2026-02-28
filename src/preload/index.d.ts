@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle } from '../renderer/src/types'
 
 export interface FogOfWarAPI {
   getState: () => Promise<GameState>
@@ -19,6 +19,7 @@ export interface FogOfWarAPI {
   setPlayerViewport: (vp: PlayerViewport | null) => void
   openPlayerWindow: () => void
   openInBrowser: () => void
+  setBattle: (battle: Battle | null) => void
   sendLaserPointer: (pos: { x: number; y: number; radius: number; color: string } | null) => void
   onLaserPointer: (cb: (pos: { x: number; y: number; radius: number; color: string } | null) => void) => () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void

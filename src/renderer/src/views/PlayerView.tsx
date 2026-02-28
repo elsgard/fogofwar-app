@@ -1,8 +1,10 @@
 import { MapCanvas } from '../components/MapCanvas'
+import { InitiativeStrip } from '../components/InitiativeStrip'
 import { useGameStore } from '../store/gameStore'
 
 export function PlayerView(): React.JSX.Element {
   const map = useGameStore((s) => s.map)
+  const battle = useGameStore((s) => s.battle)
 
   // Always mount MapCanvas so PixiJS (WebGL context + shaders) initialises
   // immediately while the player is waiting. If MapCanvas only mounted after
@@ -16,6 +18,7 @@ export function PlayerView(): React.JSX.Element {
           <p>Waiting for the Dungeon Master to load a map…</p>
         </div>
       )}
+      {battle?.isActive && <InitiativeStrip battle={battle} />}
     </div>
   )
 }
