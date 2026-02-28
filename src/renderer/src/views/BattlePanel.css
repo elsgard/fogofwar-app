@@ -334,6 +334,40 @@
   border-color: var(--accent);
 }
 
+/* ── Attack popover ── */
+
+.attack-popover {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 200;
+  min-width: 200px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+.attack-popover-from {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.attack-popover select,
+.attack-popover input[type='number'] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 8px;
+  width: 100%;
+}
+
 /* ── Effect popover ── */
 
 .effect-popover {

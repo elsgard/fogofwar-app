@@ -101,6 +101,71 @@ function EffectPopover({ anchorRef, onAdd, onClose }: EffectPopoverProps): React
   )
 }
 
+// ── Attack popover ────────────────────────────────────────────────────────────
+
+interface AttackPopoverProps {
+  anchorRef: React.RefObject<HTMLButtonElement | null>
+  attacker: Combatant
+  targets: Combatant[]
+  onAttack: (targetId: string, damage: number) => void
+  onClose: () => void
+}
+
+function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: AttackPopoverProps): React.JSX.Element {
+  const [targetId, setTargetId] = useState(targets[0]?.id ?? '')
+  const [damage, setDamage] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  const pos = useRef({ top: 0, left: 0 })
+  if (anchorRef.current) {
+    const rect = anchorRef.current.getBoundingClientRect()
+    pos.current = { top: rect.bottom + 4, left: rect.left }
+  }
+
+  useEffect(() => {
+    const handler = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node) &&
+          !anchorRef.current?.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose, anchorRef])
+
+  function submit(): void {
+    const dmg = parseInt(damage, 10)
+    if (!targetId || isNaN(dmg) || dmg <= 0) return
+    onAttack(targetId, dmg)
+    onClose()
+  }
+
+  return createPortal(
+    <div className="attack-popover" ref={ref}
+      style={{ position: 'fixed', top: pos.current.top, left: pos.current.left }}
+    >
+      <div className="attack-popover-from">⚔ {attacker.name} attacks…</div>
+      <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+        {targets.map((t) => (
+          <option key={t.id} value={t.id}>{t.name}</option>
+        ))}
+      </select>
+      <input
+        autoFocus
+        type="number"
+        placeholder="Damage"
+        min={1}
+        value={damage}
+        onChange={(e) => setDamage(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+      />
+      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={submit}
+        disabled={!targetId || !damage.trim()}>
+        Apply Damage
+      </button>
+    </div>,
+    document.body
+  )
+}
+
 interface CombatantRowProps {
   combatant: Combatant
   tokenColor: string | null
@@ -239,6 +304,8 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   const [newTokenId, setNewTokenId] = useState<string>('none')
   const [newIsPlayer, setNewIsPlayer] = useState(false)
   const [noteText, setNoteText] = useState('')
+  const [showAttackPopover, setShowAttackPopover] = useState(false)
+  const attackButtonRef = useRef<HTMLButtonElement>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
 
   // Scroll log to bottom on new entries
@@ -362,6 +429,30 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
     const entry = logEntry(battle.round, 'note', noteText.trim())
     setBattle({ ...battle, log: [...battle.log, entry] })
     setNoteText('')
+  }
+
+  function handleAttack(targetId: string, damage: number): void {
+    if (!battle) return
+    const attacker = battle.combatants.find((c) => c.isActive)
+    const target = battle.combatants.find((c) => c.id === targetId)
+    if (!attacker || !target) return
+
+    const newHp = target.hp !== null ? Math.max(0, target.hp - damage) : null
+    const hpStr = newHp !== null ? ` (${newHp}/${target.hpMax ?? '?'} HP)` : ''
+    const attackLog = logEntry(
+      battle.round, 'damage',
+      `${attacker.name} attacked ${target.name} for ${damage} damage${hpStr}`,
+      target.id, { amount: damage },
+    )
+
+    let log = [...battle.log, attackLog]
+    if (newHp !== null && newHp <= 0 && (target.hp ?? 1) > 0) {
+      log.push(logEntry(battle.round, 'death', `${target.name} dropped to 0 HP`, target.id))
+    }
+    const combatants = battle.combatants.map((c) =>
+      c.id === targetId ? { ...c, hp: newHp } : c
+    )
+    setBattle({ ...battle, combatants, log })
   }
 
   function updateTurnDuration(val: number): void {
@@ -516,7 +607,26 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
           <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={nextTurn}>
             Next Turn →
           </button>
+          {sorted[activeIdx] && sorted.length > 1 && (
+            <button
+              ref={attackButtonRef}
+              className="btn btn-secondary"
+              style={{ fontSize: 12 }}
+              onClick={() => setShowAttackPopover((v) => !v)}
+            >
+              ⚔ Attack
+            </button>
+          )}
         </div>
+      )}
+      {showAttackPopover && sorted[activeIdx] && (
+        <AttackPopover
+          anchorRef={attackButtonRef}
+          attacker={sorted[activeIdx]}
+          targets={sorted.filter((c) => c.id !== sorted[activeIdx].id)}
+          onAttack={handleAttack}
+          onClose={() => setShowAttackPopover(false)}
+        />
       )}
 
       {/* Battle log */}
