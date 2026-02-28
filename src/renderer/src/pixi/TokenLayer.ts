@@ -12,7 +12,8 @@ const TYPE_COLORS: Record<Token['type'], number> = {
 
 interface TokenSprite {
   container: Container
-  outline: Graphics
+  turnOutline: Graphics  // amber ring — active battle turn
+  outline: Graphics      // green ring — DM selection
   circle: Graphics
   statusGraphic: Graphics
   statusLabel: Text
@@ -23,6 +24,8 @@ interface TokenSprite {
 
 const SELECTION_COLOR = 0x00e676
 const SELECTION_WIDTH = 3
+const TURN_COLOR = 0xf59e0b
+const TURN_WIDTH = 3
 
 /**
  * Manages token sprites on the map.
@@ -36,6 +39,7 @@ export class TokenLayer extends Container {
   private labelsVisible = true
   private hoveredId: string | null = null
   private selectedId: string | null = null
+  private activeTurnId: string | null = null
 
   private makeLabelStyle(): TextStyle {
     return new TextStyle({
@@ -60,8 +64,31 @@ export class TokenLayer extends Container {
     this.radius = r
     for (const [id, sprite] of this.sprites) {
       this.drawCircle(sprite)
+      this.drawTurnOutline(sprite, id === this.activeTurnId)
       this.drawOutline(sprite, id === this.selectedId)
       sprite.label.y = -(r + 10)
+    }
+  }
+
+  setActiveTurnToken(id: string | null): void {
+    if (id === this.activeTurnId) return
+    const prev = this.activeTurnId
+    this.activeTurnId = id
+    if (prev) {
+      const s = this.sprites.get(prev)
+      if (s) this.drawTurnOutline(s, false)
+    }
+    if (id) {
+      const s = this.sprites.get(id)
+      if (s) this.drawTurnOutline(s, true)
+    }
+  }
+
+  private drawTurnOutline(sprite: TokenSprite, active: boolean): void {
+    sprite.turnOutline.clear()
+    if (active) {
+      const r = this.radius + TURN_WIDTH + 1 + SELECTION_WIDTH + 2
+      sprite.turnOutline.circle(0, 0, r).stroke({ color: TURN_COLOR, width: TURN_WIDTH })
     }
   }
 
@@ -189,6 +216,7 @@ export class TokenLayer extends Container {
     const color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
     const status: TokenStatus = token.status ?? 'alive'
 
+    const turnOutline = new Graphics()
     const outline = new Graphics()
     const circle = new Graphics()
     const statusGraphic = new Graphics()
@@ -200,12 +228,13 @@ export class TokenLayer extends Container {
     label.y = -(this.radius + 10)
     label.visible = this.labelsVisible || token.id === this.hoveredId
 
-    container.addChild(outline, circle, statusGraphic, statusLabel, label)
+    container.addChild(turnOutline, outline, circle, statusGraphic, statusLabel, label)
     this.addChild(container)
 
-    const sprite: TokenSprite = { container, outline, circle, statusGraphic, statusLabel, label, color, status }
+    const sprite: TokenSprite = { container, turnOutline, outline, circle, statusGraphic, statusLabel, label, color, status }
     this.sprites.set(token.id, sprite)
     this.drawCircle(sprite)
+    this.drawTurnOutline(sprite, token.id === this.activeTurnId)
     this.drawOutline(sprite, token.id === this.selectedId)
   }
 

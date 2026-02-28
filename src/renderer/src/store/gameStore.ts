@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { GameState, FogOp, Token, MapInfo, PlayerViewport } from '../types'
+import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal } from '../types'
+import type { MonsterEntry } from '../types/monster'
 
 interface GameStore extends GameState {
   // Local UI state
@@ -21,6 +22,10 @@ interface GameStore extends GameState {
   updateToken: (token: Token) => void
   removeToken: (id: string) => void
 
+  // Local DM-only state (not broadcast)
+  monsters: MonsterEntry[] | null
+  setMonsters: (monsters: MonsterEntry[] | null) => void
+
   // Local-only UI actions
   setActiveTool: (tool: GameStore['activeTool']) => void
   setBrushRadius: (r: number) => void
@@ -31,11 +36,15 @@ interface GameStore extends GameState {
   setLaserRadius: (r: number) => void
   setLaserColor: (color: string) => void
   setPlayerViewport: (vp: PlayerViewport | null) => void
+  setBattle: (battle: Battle | null) => void
+  setMonsterReveal: (reveal: MonsterReveal | null) => void
 
   // Persistence
   isDirty: boolean
   saveScene: () => Promise<void>
   loadScene: () => Promise<void>
+  saveParty: (tokens: Token[]) => Promise<void>
+  loadParty: () => Promise<void>
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -44,6 +53,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   fogOps: [],
   tokens: [],
   playerViewport: null,
+
+  // GameState extras
+  battle: null,
+  monsterReveal: null,
+
+  // DM-local state (not broadcast)
+  monsters: null,
 
   // UI state
   activeTool: 'fog-reveal',
@@ -73,6 +89,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       tokenLabelSize: state.tokenLabelSize,
       tokenLabelVisible: state.tokenLabelVisible,
       playerViewport: state.playerViewport ?? null,
+      // SSE lite updates strip battle.log to keep payloads small on fog-op events.
+      // If incoming battle has the same id but an empty log, preserve the existing log.
+      battle: !state.battle
+        ? null
+        : state.battle.log.length === 0 && s.battle?.id === state.battle.id
+          ? { ...state.battle, log: s.battle!.log }
+          : state.battle,
+      monsterReveal: state.monsterReveal ?? null,
   })),
 
   loadMap: async () => {
@@ -137,6 +161,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (get().selectedTokenId === id) set({ selectedTokenId: null })
   },
 
+  setMonsters: (monsters) => set({ monsters }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setBrushRadius: (brushRadius) => set({ brushRadius }),
   setTokenRadius: (tokenRadius) => {
@@ -154,6 +179,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setSelectedTokenId: (selectedTokenId) => set({ selectedTokenId }),
   setLaserRadius: (laserRadius) => set({ laserRadius }),
   setLaserColor: (laserColor) => set({ laserColor }),
+  setBattle: (battle) => {
+    window.api?.setBattle(battle)
+    set({ battle, isDirty: true })
+  },
+  setMonsterReveal: (reveal) => {
+    window.api?.setMonsterReveal(reveal)
+    set({ monsterReveal: reveal })
+  },
   setPlayerViewport: (vp) => {
     window.api?.setPlayerViewport(vp)
     set({ playerViewport: vp })
@@ -175,5 +208,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (result.error) alert(`Load failed: ${result.error}`)
     else set({ isDirty: false })
     // State itself arrives via the broadcastState() → onStateUpdate → applyState path
+  },
+
+  saveParty: async (tokens) => {
+    const result = await window.api.saveParty(tokens)
+    if (result.error) alert(`Export failed: ${result.error}`)
+  },
+
+  loadParty: async () => {
+    const result = await window.api.loadParty()
+    if (result.cancelled) return
+    if (result.error) alert(`Import failed: ${result.error}`)
+    else set({ isDirty: true })
+    // Tokens arrive via broadcastState() → onStateUpdate → applyState path
   },
 }))

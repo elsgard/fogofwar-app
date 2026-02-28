@@ -1,0 +1,24 @@
+.initiative-strip {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(26, 26, 46, 0.88);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 14px 10px;
+  pointer-events: none;
+}
+
+.initiative-strip-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.initiative-strip-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}

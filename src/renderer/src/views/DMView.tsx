@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { MapCanvas } from '../components/MapCanvas'
 import type { MapCanvasHandle } from '../components/MapCanvas'
+import { BattlePanel } from './BattlePanel'
+import { ExportPartyDialog } from '../components/ExportPartyDialog'
+import { MonsterSearchModal } from '../components/MonsterSearchModal'
+import { CharacterSheetModal } from '../components/CharacterSheetModal'
 import { useGameStore } from '../store/gameStore'
-import type { Token, TokenStatus } from '../types'
+import type { Token, TokenStatus, MonsterSheet } from '../types'
+import type { MonsterEntry } from '../types/monster'
+import { entryToSheet } from '../types/monster'
 
 const TOKEN_COLORS = [
   '#4a9eff', // blue
@@ -32,11 +38,17 @@ const TOOL_CYCLE = ['fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as c
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const menubarRef = useRef<HTMLElement>(null)
+  const monsterFileRef = useRef<HTMLInputElement>(null)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
+  const [showBattlePanel, setShowBattlePanel] = useState(false)
+  const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
+  const [showMonsterSearch, setShowMonsterSearch] = useState(false)
+  const [viewSheet, setViewSheet] = useState<MonsterSheet | null>(null)
 
   const {
     map,
     tokens,
+    battle,
     activeTool,
     brushRadius,
     tokenRadius,
@@ -46,6 +58,7 @@ export function DMView(): React.JSX.Element {
     laserRadius,
     laserColor,
     isDirty,
+    monsters,
     loadMap,
     resetFog,
     addToken,
@@ -60,13 +73,48 @@ export function DMView(): React.JSX.Element {
     setLaserRadius,
     setLaserColor,
     setPlayerViewport,
+    setMonsters,
+    monsterReveal,
+    setMonsterReveal,
     saveScene,
     loadScene,
+    saveParty,
+    loadParty,
   } = useGameStore()
 
   const [newTokenLabel, setNewTokenLabel] = useState('')
   const [newTokenType, setNewTokenType] = useState<Token['type']>('player')
   const [newTokenColor, setNewTokenColor] = useState(TYPE_DEFAULT_COLORS.player)
+  const [newTokenHp, setNewTokenHp] = useState('')
+  const [newTokenHpMax, setNewTokenHpMax] = useState('')
+  const [newTokenAc, setNewTokenAc] = useState('')
+  const [pendingMonsterEntry, setPendingMonsterEntry] = useState<MonsterEntry | null>(null)
+
+  const selectedToken = tokens.find((t) => t.id === selectedTokenId) ?? null
+
+  // Edit state for selected token
+  const [editLabel, setEditLabel] = useState('')
+  const [editType, setEditType] = useState<Token['type']>('player')
+  const [editColor, setEditColor] = useState(TYPE_DEFAULT_COLORS.player)
+  const [editHp, setEditHp] = useState('')
+  const [editHpMax, setEditHpMax] = useState('')
+  const [editAc, setEditAc] = useState('')
+
+  // Auto-clear monster reveal when the character sheet modal is closed
+  useEffect(() => {
+    if (!viewSheet && monsterReveal) setMonsterReveal(null)
+  }, [viewSheet])
+
+  // Sync edit fields when a different token is selected
+  useEffect(() => {
+    if (!selectedToken) return
+    setEditLabel(selectedToken.label)
+    setEditType(selectedToken.type)
+    setEditColor(selectedToken.color)
+    setEditHp(selectedToken.hp != null ? String(selectedToken.hp) : '')
+    setEditHpMax(selectedToken.hpMax != null ? String(selectedToken.hpMax) : '')
+    setEditAc(selectedToken.ac != null ? String(selectedToken.ac) : '')
+  }, [selectedToken?.id])
 
   // Tool keyboard shortcuts
   useEffect(() => {
@@ -109,7 +157,36 @@ export function DMView(): React.JSX.Element {
     setNewTokenColor(TYPE_DEFAULT_COLORS[type])
   }
 
-  const selectedToken = tokens.find((t) => t.id === selectedTokenId) ?? null
+  function handleMonsterFileLoad(e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string)
+        if (Array.isArray(data)) {
+          setMonsters(data as MonsterEntry[])
+        } else {
+          alert('Invalid monster database format. Expected a JSON array.')
+        }
+      } catch {
+        alert('Failed to parse monster database JSON.')
+      }
+    }
+    reader.readAsText(file)
+    // Reset so the same file can be reloaded
+    if (monsterFileRef.current) monsterFileRef.current.value = ''
+  }
+
+  function handleMonsterSelect(entry: MonsterEntry): void {
+    setNewTokenLabel(entry.name)
+    setNewTokenHp(entry.maxHitPoints != null ? String(entry.maxHitPoints) : '')
+    setNewTokenHpMax(entry.maxHitPoints != null ? String(entry.maxHitPoints) : '')
+    setNewTokenAc(entry.ac != null ? String(entry.ac) : '')
+    setNewTokenType('enemy')
+    setNewTokenColor(TYPE_DEFAULT_COLORS.enemy)
+    setPendingMonsterEntry(entry)
+  }
 
   function handleAddToken(): void {
     if (!map || !newTokenLabel.trim()) return
@@ -120,8 +197,16 @@ export function DMView(): React.JSX.Element {
       x: map.width / 2,
       y: map.height / 2,
       visibleToPlayers: true,
+      hp: newTokenHp.trim() ? parseInt(newTokenHp, 10) : null,
+      hpMax: newTokenHpMax.trim() ? parseInt(newTokenHpMax, 10) : null,
+      ac: newTokenAc.trim() ? parseInt(newTokenAc, 10) : null,
+      monsterSheet: pendingMonsterEntry ? entryToSheet(pendingMonsterEntry) : null,
     })
     setNewTokenLabel('')
+    setNewTokenHp('')
+    setNewTokenHpMax('')
+    setNewTokenAc('')
+    setPendingMonsterEntry(null)
   }
 
   function handleToggleVisibility(token: Token): void {
@@ -145,8 +230,43 @@ export function DMView(): React.JSX.Element {
     updateToken({ ...token, status: STATUS_CYCLE[current] })
   }
 
+  function handleCopyToken(token: Token): void {
+    addToken({
+      type: token.type,
+      label: token.label,
+      color: token.color,
+      x: token.x + 40,
+      y: token.y + 40,
+      visibleToPlayers: token.visibleToPlayers,
+      status: token.status,
+      hp: token.hp ?? null,
+      hpMax: token.hpMax ?? null,
+      ac: token.ac ?? null,
+      monsterSheet: token.monsterSheet ?? null,
+    })
+  }
+
+  function saveEditStats(): void {
+    if (!selectedToken) return
+    updateToken({
+      ...selectedToken,
+      hp: editHp.trim() ? parseInt(editHp, 10) : null,
+      hpMax: editHpMax.trim() ? parseInt(editHpMax, 10) : null,
+      ac: editAc.trim() ? parseInt(editAc, 10) : null,
+    })
+  }
+
   return (
     <div className="dm-view">
+
+      {/* Hidden file input for monster database */}
+      <input
+        ref={monsterFileRef}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={handleMonsterFileLoad}
+      />
 
       {/* ── Menu bar ── */}
       <nav className="menubar" ref={menubarRef} onClick={() => setOpenMenu(null)}>
@@ -166,11 +286,27 @@ export function DMView(): React.JSX.Element {
           {openMenu === 'session' && (
             <div className="menu-dropdown">
               <button className="menu-dropdown-item" onClick={() => { saveScene(); setOpenMenu(null) }}>
-                Save…
+                Save Scene…
               </button>
               <button className="menu-dropdown-item" onClick={() => { loadScene(); setOpenMenu(null) }}>
-                Load…
+                Load Scene…
               </button>
+              <div className="menu-dropdown-divider" />
+              <button className="menu-dropdown-item" onClick={() => { setShowExportPartyDialog(true); setOpenMenu(null) }}>
+                Export Party…
+              </button>
+              <button className="menu-dropdown-item" onClick={() => { loadParty(); setOpenMenu(null) }}>
+                Import Party…
+              </button>
+              <div className="menu-dropdown-divider" />
+              <button className="menu-dropdown-item" onClick={() => { monsterFileRef.current?.click(); setOpenMenu(null) }}>
+                {monsters ? `Reload Monster DB… (${monsters.length})` : 'Load Monster DB…'}
+              </button>
+              {monsters && (
+                <button className="menu-dropdown-item" onClick={() => { setMonsters(null); setOpenMenu(null) }}>
+                  Unload Monster DB
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -225,6 +361,37 @@ export function DMView(): React.JSX.Element {
             </div>
           )}
         </div>
+
+        {/* Battle button */}
+        <button
+          className={`menu-trigger ${showBattlePanel ? 'open' : ''}`}
+          onClick={() => setShowBattlePanel((v) => !v)}
+        >
+          Battle{battle?.isActive ? ' ⚔' : ''}
+        </button>
+
+        {/* Right-side: Player View controls */}
+        {map && (
+          <div className="menubar-right">
+            <button
+              className="menu-trigger"
+              title="Push your current pan/zoom to the player view"
+              onClick={() => {
+                const vp = mapCanvasRef.current?.getCurrentViewport() ?? null
+                setPlayerViewport(vp)
+              }}
+            >
+              Push View →
+            </button>
+            <button
+              className="menu-trigger"
+              title="Reset player view to auto-fit"
+              onClick={() => setPlayerViewport(null)}
+            >
+              Reset View
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* ── Left sidebar ── */}
@@ -309,85 +476,138 @@ export function DMView(): React.JSX.Element {
             {/* Tokens section */}
             <section className="sidebar-section">
               <h3>Tokens</h3>
-              <label className="brush-label">
-                Token size: {tokenRadius}px
-                <input
-                  type="range"
-                  min={10}
-                  max={80}
-                  value={tokenRadius}
-                  onChange={(e) => setTokenRadius(Number(e.target.value))}
-                />
-              </label>
-              <label className="brush-label">
-                Label size: {tokenLabelSize}px
-                <input
-                  type="range"
-                  min={8}
-                  max={36}
-                  value={tokenLabelSize}
-                  onChange={(e) => setTokenLabelSize(Number(e.target.value))}
-                />
-              </label>
-              <label className="token-label-toggle">
-                <input
-                  type="checkbox"
-                  checked={tokenLabelVisible}
-                  onChange={(e) => setTokenLabelVisible(e.target.checked)}
-                />
-                Show labels
-              </label>
-              <div className="token-form">
-                <input
-                  type="text"
-                  placeholder="Label…"
-                  value={newTokenLabel}
-                  onChange={(e) => setNewTokenLabel(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
-                />
-                <div className="token-type-radios">
-                  {(['player', 'npc', 'enemy'] as const).map((type) => (
-                    <label
-                      key={type}
-                      className={`token-type-radio ${newTokenType === type ? 'token-type-active' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="token-type"
-                        value={type}
-                        checked={newTokenType === type}
-                        onChange={() => handleTypeChange(type)}
-                      />
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </label>
-                  ))}
-                </div>
-                <div className="color-swatches">
-                  {TOKEN_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      className={`swatch ${newTokenColor === c ? 'swatch-active' : ''}`}
-                      style={{ background: c }}
-                      onClick={() => setNewTokenColor(c)}
-                    />
-                  ))}
-                  <label
-                    className={`swatch swatch-picker ${!TOKEN_COLORS.includes(newTokenColor) ? 'swatch-active' : ''}`}
-                    style={TOKEN_COLORS.includes(newTokenColor) ? undefined : { background: newTokenColor }}
-                    title="Custom color"
-                  >
+
+              {/* Size & Labels sub-section */}
+              <details className="subsection">
+                <summary className="subsection-header">Size &amp; Labels</summary>
+                <div className="subsection-body">
+                  <label className="brush-label">
+                    Token size: {tokenRadius}px
                     <input
-                      type="color"
-                      value={newTokenColor}
-                      onChange={(e) => setNewTokenColor(e.target.value)}
+                      type="range"
+                      min={10}
+                      max={80}
+                      value={tokenRadius}
+                      onChange={(e) => setTokenRadius(Number(e.target.value))}
                     />
                   </label>
+                  <label className="brush-label">
+                    Label size: {tokenLabelSize}px
+                    <input
+                      type="range"
+                      min={8}
+                      max={36}
+                      value={tokenLabelSize}
+                      onChange={(e) => setTokenLabelSize(Number(e.target.value))}
+                    />
+                  </label>
+                  <label className="token-label-toggle">
+                    <input
+                      type="checkbox"
+                      checked={tokenLabelVisible}
+                      onChange={(e) => setTokenLabelVisible(e.target.checked)}
+                    />
+                    Show labels
+                  </label>
                 </div>
-                <button className="btn btn-primary" onClick={handleAddToken} disabled={!newTokenLabel.trim()}>
-                  Add Token
-                </button>
-              </div>
+              </details>
 
+              {/* Add Token sub-section */}
+              <details className="subsection" open>
+                <summary className="subsection-header">Add Token</summary>
+                <div className="subsection-body">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="Label…"
+                      value={newTokenLabel}
+                      onChange={(e) => { setNewTokenLabel(e.target.value); if (pendingMonsterEntry) setPendingMonsterEntry(null) }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
+                      style={{ flex: 1 }}
+                    />
+                    {monsters && (
+                      <button
+                        className="btn btn-secondary"
+                        style={{ fontSize: 11, padding: '4px 8px', whiteSpace: 'nowrap' }}
+                        onClick={() => setShowMonsterSearch(true)}
+                        title="Search monster database"
+                      >
+                        🔍 Monster
+                      </button>
+                    )}
+                  </div>
+                  {pendingMonsterEntry && (
+                    <p className="hint" style={{ fontStyle: 'italic' }}>
+                      From: {pendingMonsterEntry.name}
+                    </p>
+                  )}
+                  <div className="token-type-radios">
+                    {(['player', 'npc', 'enemy'] as const).map((type) => (
+                      <label
+                        key={type}
+                        className={`token-type-radio ${newTokenType === type ? 'token-type-active' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="token-type"
+                          value={type}
+                          checked={newTokenType === type}
+                          onChange={() => handleTypeChange(type)}
+                        />
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="color-swatches">
+                    {TOKEN_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        className={`swatch ${newTokenColor === c ? 'swatch-active' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => setNewTokenColor(c)}
+                      />
+                    ))}
+                    <label
+                      className={`swatch swatch-picker ${!TOKEN_COLORS.includes(newTokenColor) ? 'swatch-active' : ''}`}
+                      style={TOKEN_COLORS.includes(newTokenColor) ? undefined : { background: newTokenColor }}
+                      title="Custom color"
+                    >
+                      <input
+                        type="color"
+                        value={newTokenColor}
+                        onChange={(e) => setNewTokenColor(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="token-stat-row">
+                    <input
+                      type="number"
+                      placeholder="HP"
+                      value={newTokenHp}
+                      onChange={(e) => setNewTokenHp(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max HP"
+                      value={newTokenHpMax}
+                      onChange={(e) => setNewTokenHpMax(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      placeholder="AC"
+                      value={newTokenAc}
+                      onChange={(e) => setNewTokenAc(e.target.value)}
+                    />
+                  </div>
+                  <button className="btn btn-primary" onClick={handleAddToken} disabled={!newTokenLabel.trim()}>
+                    Add Token
+                  </button>
+                </div>
+              </details>
+            </section>
+
+            {/* Token list — grows to fill remaining sidebar space */}
+            <div className="token-list-section">
               <ul className="token-list">
                 {tokens.map((token) => (
                   <li
@@ -401,69 +621,154 @@ export function DMView(): React.JSX.Element {
                     />
                     <span className="token-label">{token.label}</span>
                     <span className="token-type">{token.type}</span>
-                    <button
-                      className={`btn-icon status-${token.status ?? 'alive'}`}
-                      title={`Status: ${token.status ?? 'alive'} (click to cycle)`}
-                      onClick={(e) => { e.stopPropagation(); handleCycleStatus(token) }}
-                    >
-                      {STATUS_ICON[token.status ?? 'alive']}
-                    </button>
-                    <button
-                      className={`btn-icon ${token.visibleToPlayers ? 'visible' : 'hidden'}`}
-                      title={token.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}
-                      onClick={(e) => { e.stopPropagation(); handleToggleVisibility(token) }}
-                    >
-                      {token.visibleToPlayers ? '👁' : '🚫'}
-                    </button>
-                    <button
-                      className="btn-icon remove"
-                      title="Remove token"
-                      onClick={(e) => { e.stopPropagation(); removeToken(token.id) }}
-                    >
-                      ✕
-                    </button>
+                    <div className="token-item-actions">
+                      <button
+                        className={`btn-icon status-${token.status ?? 'alive'}`}
+                        title={`Status: ${token.status ?? 'alive'} (click to cycle)`}
+                        onClick={(e) => { e.stopPropagation(); handleCycleStatus(token) }}
+                      >
+                        {STATUS_ICON[token.status ?? 'alive']}
+                      </button>
+                      <button
+                        className={`btn-icon ${token.visibleToPlayers ? 'visible' : 'hidden'}`}
+                        title={token.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}
+                        onClick={(e) => { e.stopPropagation(); handleToggleVisibility(token) }}
+                      >
+                        {token.visibleToPlayers ? '👁' : '🚫'}
+                      </button>
+                      <button
+                        className="btn-icon"
+                        title="Duplicate token"
+                        onClick={(e) => { e.stopPropagation(); handleCopyToken(token) }}
+                      >
+                        ❐
+                      </button>
+                      {token.monsterSheet && (
+                        <button
+                          className="btn-icon"
+                          title="View character sheet"
+                          onClick={(e) => { e.stopPropagation(); setViewSheet(token.monsterSheet!) }}
+                        >
+                          📋
+                        </button>
+                      )}
+                      <button
+                        className="btn-icon remove"
+                        title="Remove token"
+                        onClick={(e) => { e.stopPropagation(); removeToken(token.id) }}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
-            </section>
+            </div>
 
-            {/* Player viewport push/reset */}
-            <section className="sidebar-section">
-              <h3>Player View</h3>
-              <div className="session-buttons">
-                <button
-                  className="btn btn-primary"
-                  title="Push your current pan/zoom to the player view"
-                  onClick={() => {
-                    const vp = mapCanvasRef.current?.getCurrentViewport() ?? null
-                    setPlayerViewport(vp)
-                  }}
-                >
-                  Push View →
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  title="Reset player view to auto-fit"
-                  onClick={() => setPlayerViewport(null)}
-                >
-                  Reset View
-                </button>
-              </div>
-            </section>
           </>
         )}
 
         {selectedToken && (
           <section className="sidebar-section">
-            <h3>Selected: {selectedToken.label}</h3>
-            <p className="hint">Drag the token on the map to move it.</p>
-            <p className="hint">Type: {selectedToken.type}</p>
-            <p className="hint">
-              Position: ({Math.round(selectedToken.x)}, {Math.round(selectedToken.y)})
-            </p>
+            <h3>Edit Token</h3>
+            <div className="token-form">
+              <input
+                type="text"
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+                onBlur={() => { if (editLabel.trim()) updateToken({ ...selectedToken, label: editLabel.trim() }) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && editLabel.trim()) updateToken({ ...selectedToken, label: editLabel.trim() }) }}
+              />
+              <div className="token-type-radios">
+                {(['player', 'npc', 'enemy'] as const).map((type) => (
+                  <label
+                    key={type}
+                    className={`token-type-radio ${editType === type ? 'token-type-active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="edit-token-type"
+                      value={type}
+                      checked={editType === type}
+                      onChange={() => { setEditType(type); updateToken({ ...selectedToken, type }) }}
+                    />
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </label>
+                ))}
+              </div>
+              <div className="color-swatches">
+                {TOKEN_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    className={`swatch ${editColor === c ? 'swatch-active' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => { setEditColor(c); updateToken({ ...selectedToken, color: c }) }}
+                  />
+                ))}
+                <label
+                  className={`swatch swatch-picker ${!TOKEN_COLORS.includes(editColor) ? 'swatch-active' : ''}`}
+                  style={TOKEN_COLORS.includes(editColor) ? undefined : { background: editColor }}
+                  title="Custom color"
+                >
+                  <input
+                    type="color"
+                    value={editColor}
+                    onChange={(e) => { setEditColor(e.target.value); updateToken({ ...selectedToken, color: e.target.value }) }}
+                  />
+                </label>
+              </div>
+              <div className="token-stat-row">
+                <input type="number" placeholder="HP" value={editHp}
+                  onChange={(e) => setEditHp(e.target.value)} onBlur={saveEditStats} />
+                <input type="number" placeholder="Max HP" value={editHpMax}
+                  onChange={(e) => setEditHpMax(e.target.value)} onBlur={saveEditStats} />
+                <input type="number" placeholder="AC" value={editAc}
+                  onChange={(e) => setEditAc(e.target.value)} onBlur={saveEditStats} />
+              </div>
+              {selectedToken.monsterSheet && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: 12 }}
+                  onClick={() => setViewSheet(selectedToken.monsterSheet!)}
+                >
+                  📋 View Character Sheet
+                </button>
+              )}
+              <p className="hint">
+                Position: ({Math.round(selectedToken.x)}, {Math.round(selectedToken.y)})
+              </p>
+            </div>
           </section>
         )}
       </aside>
+
+      {/* ── Battle panel (right side overlay) ── */}
+      {showBattlePanel && <BattlePanel onClose={() => setShowBattlePanel(false)} />}
+
+      {showExportPartyDialog && (
+        <ExportPartyDialog
+          tokens={tokens}
+          onExport={(selected) => { saveParty(selected); setShowExportPartyDialog(false) }}
+          onClose={() => setShowExportPartyDialog(false)}
+        />
+      )}
+
+      {showMonsterSearch && monsters && (
+        <MonsterSearchModal
+          monsters={monsters}
+          onSelect={handleMonsterSelect}
+          onClose={() => setShowMonsterSearch(false)}
+        />
+      )}
+
+      {viewSheet && (
+        <CharacterSheetModal
+          sheet={viewSheet}
+          onClose={() => setViewSheet(null)}
+          onShowToPlayers={() => setMonsterReveal({ imgUrl: viewSheet.imgUrl!, name: viewSheet.name })}
+          isShowing={!!monsterReveal && monsterReveal.imgUrl === viewSheet.imgUrl}
+        />
+      )}
 
       {/* ── Map canvas (fills the whole window behind the sidebar) ── */}
       <div className="canvas-area">
