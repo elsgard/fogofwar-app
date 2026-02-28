@@ -121,14 +121,15 @@ export function DMView(): React.JSX.Element {
     <div className="dm-view">
 
       {/* ── Menu bar ── */}
-      <nav className="menubar" ref={menubarRef}>
+      <nav className="menubar" ref={menubarRef} onClick={() => setOpenMenu(null)}>
         <span className="menubar-title">Fog of War</span>
 
         {/* Session menu */}
-        <div className="menu-item">
+        <div className="menu-item" onClick={(e) => e.stopPropagation()}>
           <button
             className={`menu-trigger ${openMenu === 'session' ? 'open' : ''}`}
             onClick={() => toggleMenu('session')}
+            onMouseEnter={() => { if (openMenu !== null) setOpenMenu('session') }}
           >
             Session
             {isDirty && <span className="dirty-indicator"> ●</span>}
@@ -147,10 +148,11 @@ export function DMView(): React.JSX.Element {
         </div>
 
         {/* Map menu */}
-        <div className="menu-item">
+        <div className="menu-item" onClick={(e) => e.stopPropagation()}>
           <button
             className={`menu-trigger ${openMenu === 'map' ? 'open' : ''}`}
             onClick={() => toggleMenu('map')}
+            onMouseEnter={() => { if (openMenu !== null) setOpenMenu('map') }}
           >
             Map ▾
           </button>
@@ -170,10 +172,11 @@ export function DMView(): React.JSX.Element {
         </div>
 
         {/* Player menu */}
-        <div className="menu-item">
+        <div className="menu-item" onClick={(e) => e.stopPropagation()}>
           <button
             className={`menu-trigger ${openMenu === 'player' ? 'open' : ''}`}
             onClick={() => toggleMenu('player')}
+            onMouseEnter={() => { if (openMenu !== null) setOpenMenu('player') }}
           >
             Player ▾
           </button>
