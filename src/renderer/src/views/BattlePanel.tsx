@@ -239,7 +239,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
       id: newId(),
       name: 'Battle',
       round: 1,
-      roundDuration: 6,
+      turnDuration: 6,
       isActive: true,
       combatants: [],
       log: [logEntry(1, 'round-start', 'Round 1 started')],
@@ -350,9 +350,9 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
     setNoteText('')
   }
 
-  function updateRoundDuration(val: number): void {
+  function updateTurnDuration(val: number): void {
     if (!battle || isNaN(val) || val < 1) return
-    setBattle({ ...battle, roundDuration: val })
+    setBattle({ ...battle, turnDuration: val })
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -375,7 +375,9 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   }
 
   const sorted = sortedCombatants(battle.combatants)
-  const elapsed = (battle.round - 1) * battle.roundDuration
+  const activeIdx = sorted.findIndex((c) => c.isActive)
+  const completedTurns = (battle.round - 1) * sorted.length + Math.max(0, activeIdx)
+  const elapsed = completedTurns * battle.turnDuration
   const minutes = Math.floor(elapsed / 60)
   const seconds = elapsed % 60
   const timeStr = minutes > 0 ? `${minutes}m ${seconds}s elapsed` : elapsed > 0 ? `${seconds}s elapsed` : ''
@@ -403,13 +405,13 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
         <div className="battle-round-sub">
           {timeStr && <span>{timeStr} · </span>}
           <span>
-            {battle.roundDuration}s/round{' '}
+            {battle.turnDuration}s/turn{' '}
             <input
               type="number"
               min={1}
               max={600}
-              value={battle.roundDuration}
-              onChange={(e) => updateRoundDuration(parseInt(e.target.value, 10))}
+              value={battle.turnDuration}
+              onChange={(e) => updateTurnDuration(parseInt(e.target.value, 10))}
               style={{ width: 44, fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 3, color: 'var(--text)', padding: '0 4px' }}
             />
           </span>
@@ -459,7 +461,23 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
               <input type="number" placeholder="Max HP" value={newHpMax} onChange={(e) => setNewHpMax(e.target.value)} />
               <input type="number" placeholder="AC" value={newAc} onChange={(e) => setNewAc(e.target.value)} />
             </div>
-            <select value={newTokenId} onChange={(e) => setNewTokenId(e.target.value)}>
+            <select
+              value={newTokenId}
+              onChange={(e) => {
+                const id = e.target.value
+                setNewTokenId(id)
+                if (id !== 'none') {
+                  const t = tokens.find((tok) => tok.id === id)
+                  if (t) {
+                    setNewName(t.label)
+                    setNewHp(t.hp != null ? String(t.hp) : '')
+                    setNewHpMax(t.hpMax != null ? String(t.hpMax) : '')
+                    setNewAc(t.ac != null ? String(t.ac) : '')
+                    setNewIsPlayer(t.type === 'player')
+                  }
+                }
+              }}
+            >
               <option value="none">No token link</option>
               {tokens.map((t) => (
                 <option key={t.id} value={t.id}>{t.label} ({t.type})</option>

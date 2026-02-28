@@ -70,6 +70,9 @@ export function DMView(): React.JSX.Element {
   const [newTokenLabel, setNewTokenLabel] = useState('')
   const [newTokenType, setNewTokenType] = useState<Token['type']>('player')
   const [newTokenColor, setNewTokenColor] = useState(TYPE_DEFAULT_COLORS.player)
+  const [newTokenHp, setNewTokenHp] = useState('')
+  const [newTokenHpMax, setNewTokenHpMax] = useState('')
+  const [newTokenAc, setNewTokenAc] = useState('')
 
   // Tool keyboard shortcuts
   useEffect(() => {
@@ -123,8 +126,14 @@ export function DMView(): React.JSX.Element {
       x: map.width / 2,
       y: map.height / 2,
       visibleToPlayers: true,
+      hp: newTokenHp.trim() ? parseInt(newTokenHp, 10) : null,
+      hpMax: newTokenHpMax.trim() ? parseInt(newTokenHpMax, 10) : null,
+      ac: newTokenAc.trim() ? parseInt(newTokenAc, 10) : null,
     })
     setNewTokenLabel('')
+    setNewTokenHp('')
+    setNewTokenHpMax('')
+    setNewTokenAc('')
   }
 
   function handleToggleVisibility(token: Token): void {
@@ -406,6 +415,26 @@ export function DMView(): React.JSX.Element {
                       onChange={(e) => setNewTokenColor(e.target.value)}
                     />
                   </label>
+                </div>
+                <div className="token-stat-row">
+                  <input
+                    type="number"
+                    placeholder="HP"
+                    value={newTokenHp}
+                    onChange={(e) => setNewTokenHp(e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max HP"
+                    value={newTokenHpMax}
+                    onChange={(e) => setNewTokenHpMax(e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="AC"
+                    value={newTokenAc}
+                    onChange={(e) => setNewTokenAc(e.target.value)}
+                  />
                 </div>
                 <button className="btn btn-primary" onClick={handleAddToken} disabled={!newTokenLabel.trim()}>
                   Add Token

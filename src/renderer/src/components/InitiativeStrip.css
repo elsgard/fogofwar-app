@@ -5,36 +5,20 @@
   background: rgba(26, 26, 46, 0.88);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 14px;
-  min-width: 180px;
-  max-width: 260px;
+  padding: 8px 14px 10px;
   pointer-events: none;
 }
 
-.initiative-strip-header {
-  font-size: 11px;
+.initiative-strip-label {
+  font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 6px;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
 }
 
-.initiative-entry {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.initiative-entry.is-active {
-  color: var(--accent);
+.initiative-strip-name {
+  font-size: 16px;
   font-weight: 700;
-}
-
-.initiative-entry-turn {
-  font-size: 11px;
-  width: 12px;
-  text-align: center;
+  color: var(--accent);
 }

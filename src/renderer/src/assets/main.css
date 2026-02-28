@@ -416,6 +416,27 @@ kbd {
   border-color: var(--accent);
 }
 
+.token-stat-row {
+  display: flex;
+  gap: 6px;
+}
+
+.token-stat-row input[type='number'] {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.token-stat-row input[type='number']:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .token-type-radios {
   display: flex;
   gap: 4px;

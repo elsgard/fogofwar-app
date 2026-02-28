@@ -57,6 +57,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const tokenLabelSize = useGameStore((s) => s.tokenLabelSize)
   const tokenLabelVisible = useGameStore((s) => s.tokenLabelVisible)
   const selectedTokenId = useGameStore((s) => s.selectedTokenId)
+  const battle = useGameStore((s) => s.battle)
   const laserRadius = useGameStore((s) => s.laserRadius)
   const laserColor = useGameStore((s) => s.laserColor)
   const { commitStroke, updateToken, setSelectedTokenId } = useGameStore()
@@ -257,6 +258,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   useEffect(() => {
     if (!isPlayerView) tokenLayerRef.current?.setSelectedToken(selectedTokenId)
   }, [selectedTokenId, isPlayerView])
+
+  // ── Highlight active-turn token (both DM and player) ─────────────────────
+  useEffect(() => {
+    const activeTokenId =
+      battle?.combatants.find((c) => c.isActive)?.tokenId ?? null
+    tokenLayerRef.current?.setActiveTurnToken(activeTokenId)
+  }, [battle])
 
   // ── Receive laser pointer (Electron player window via IPC) ────────────────
   useEffect(() => {

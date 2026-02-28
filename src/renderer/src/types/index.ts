@@ -10,6 +10,9 @@ export interface Token {
   color: string
   visibleToPlayers: boolean
   status?: TokenStatus // optional — undefined means 'alive' (backward compatible)
+  hp?: number | null
+  hpMax?: number | null
+  ac?: number | null
 }
 
 // A single fog operation - stored as a list so we can replay on new windows
@@ -81,7 +84,7 @@ export interface Battle {
   id: string
   name: string
   round: number
-  roundDuration: number        // seconds per round, default 6
+  turnDuration: number         // seconds per turn (one combatant's turn), default 6
   isActive: boolean
   combatants: Combatant[]
   log: BattleLogEntry[]
