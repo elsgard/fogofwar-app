@@ -98,6 +98,15 @@ body,
   background: var(--bg-hover);
 }
 
+.menubar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
 .menu-dropdown {
   position: absolute;
   top: calc(100% + 4px);
@@ -167,7 +176,7 @@ body,
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 12px;
   gap: 4px;
   z-index: 10;
@@ -204,6 +213,54 @@ body,
   letter-spacing: 1px;
   color: var(--text-muted);
   margin-bottom: 2px;
+}
+
+/* ── Collapsible sub-sections ───────────────────────────────────── */
+
+.subsection {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.subsection-header {
+  list-style: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+.subsection-header::-webkit-details-marker { display: none; }
+.subsection-header::marker { display: none; }
+
+.subsection-header::before {
+  content: '▶';
+  font-size: 8px;
+  display: inline-block;
+  transition: transform 0.12s;
+  flex-shrink: 0;
+}
+details[open] > .subsection-header::before {
+  transform: rotate(90deg);
+}
+
+.subsection-header:hover {
+  background: var(--bg-hover);
+}
+
+.subsection-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
 }
 
 .canvas-area {
@@ -571,13 +628,29 @@ kbd {
 
 /* ── Token list ─────────────────────────────────────────────────── */
 
+.token-list-section {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-section);
+}
+
+.token-list-section .token-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+}
+
 .token-list {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 .token-item {

@@ -39,7 +39,7 @@ export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const menubarRef = useRef<HTMLElement>(null)
   const monsterFileRef = useRef<HTMLInputElement>(null)
-  const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | 'battle' | null>(null)
+  const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
   const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
   const [showMonsterSearch, setShowMonsterSearch] = useState(false)
@@ -355,26 +355,36 @@ export function DMView(): React.JSX.Element {
           )}
         </div>
 
-        {/* Battle menu */}
-        <div className="menu-item" onClick={(e) => e.stopPropagation()}>
-          <button
-            className={`menu-trigger ${openMenu === 'battle' ? 'open' : ''}`}
-            onClick={() => toggleMenu('battle')}
-            onMouseEnter={() => { if (openMenu !== null) setOpenMenu('battle') }}
-          >
-            Battle{battle?.isActive ? ' ⚔' : ''} ▾
-          </button>
-          {openMenu === 'battle' && (
-            <div className="menu-dropdown">
-              <button
-                className="menu-dropdown-item"
-                onClick={() => { setShowBattlePanel(true); setOpenMenu(null) }}
-              >
-                {showBattlePanel ? 'Battle Panel (open)' : 'Open Battle Panel'}
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Battle button */}
+        <button
+          className={`menu-trigger ${showBattlePanel ? 'open' : ''}`}
+          onClick={() => setShowBattlePanel((v) => !v)}
+        >
+          Battle{battle?.isActive ? ' ⚔' : ''}
+        </button>
+
+        {/* Right-side: Player View controls */}
+        {map && (
+          <div className="menubar-right">
+            <button
+              className="menu-trigger"
+              title="Push your current pan/zoom to the player view"
+              onClick={() => {
+                const vp = mapCanvasRef.current?.getCurrentViewport() ?? null
+                setPlayerViewport(vp)
+              }}
+            >
+              Push View →
+            </button>
+            <button
+              className="menu-trigger"
+              title="Reset player view to auto-fit"
+              onClick={() => setPlayerViewport(null)}
+            >
+              Reset View
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* ── Left sidebar ── */}
@@ -459,123 +469,138 @@ export function DMView(): React.JSX.Element {
             {/* Tokens section */}
             <section className="sidebar-section">
               <h3>Tokens</h3>
-              <label className="brush-label">
-                Token size: {tokenRadius}px
-                <input
-                  type="range"
-                  min={10}
-                  max={80}
-                  value={tokenRadius}
-                  onChange={(e) => setTokenRadius(Number(e.target.value))}
-                />
-              </label>
-              <label className="brush-label">
-                Label size: {tokenLabelSize}px
-                <input
-                  type="range"
-                  min={8}
-                  max={36}
-                  value={tokenLabelSize}
-                  onChange={(e) => setTokenLabelSize(Number(e.target.value))}
-                />
-              </label>
-              <label className="token-label-toggle">
-                <input
-                  type="checkbox"
-                  checked={tokenLabelVisible}
-                  onChange={(e) => setTokenLabelVisible(e.target.checked)}
-                />
-                Show labels
-              </label>
-              <div className="token-form">
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input
-                    type="text"
-                    placeholder="Label…"
-                    value={newTokenLabel}
-                    onChange={(e) => { setNewTokenLabel(e.target.value); if (pendingMonsterEntry) setPendingMonsterEntry(null) }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
-                    style={{ flex: 1 }}
-                  />
-                  {monsters && (
-                    <button
-                      className="btn btn-secondary"
-                      style={{ fontSize: 11, padding: '4px 8px', whiteSpace: 'nowrap' }}
-                      onClick={() => setShowMonsterSearch(true)}
-                      title="Search monster database"
-                    >
-                      🔍 Monster
-                    </button>
-                  )}
-                </div>
-                {pendingMonsterEntry && (
-                  <p className="hint" style={{ fontStyle: 'italic' }}>
-                    From: {pendingMonsterEntry.name}
-                  </p>
-                )}
-                <div className="token-type-radios">
-                  {(['player', 'npc', 'enemy'] as const).map((type) => (
-                    <label
-                      key={type}
-                      className={`token-type-radio ${newTokenType === type ? 'token-type-active' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="token-type"
-                        value={type}
-                        checked={newTokenType === type}
-                        onChange={() => handleTypeChange(type)}
-                      />
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </label>
-                  ))}
-                </div>
-                <div className="color-swatches">
-                  {TOKEN_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      className={`swatch ${newTokenColor === c ? 'swatch-active' : ''}`}
-                      style={{ background: c }}
-                      onClick={() => setNewTokenColor(c)}
-                    />
-                  ))}
-                  <label
-                    className={`swatch swatch-picker ${!TOKEN_COLORS.includes(newTokenColor) ? 'swatch-active' : ''}`}
-                    style={TOKEN_COLORS.includes(newTokenColor) ? undefined : { background: newTokenColor }}
-                    title="Custom color"
-                  >
+
+              {/* Size & Labels sub-section */}
+              <details className="subsection">
+                <summary className="subsection-header">Size &amp; Labels</summary>
+                <div className="subsection-body">
+                  <label className="brush-label">
+                    Token size: {tokenRadius}px
                     <input
-                      type="color"
-                      value={newTokenColor}
-                      onChange={(e) => setNewTokenColor(e.target.value)}
+                      type="range"
+                      min={10}
+                      max={80}
+                      value={tokenRadius}
+                      onChange={(e) => setTokenRadius(Number(e.target.value))}
                     />
                   </label>
+                  <label className="brush-label">
+                    Label size: {tokenLabelSize}px
+                    <input
+                      type="range"
+                      min={8}
+                      max={36}
+                      value={tokenLabelSize}
+                      onChange={(e) => setTokenLabelSize(Number(e.target.value))}
+                    />
+                  </label>
+                  <label className="token-label-toggle">
+                    <input
+                      type="checkbox"
+                      checked={tokenLabelVisible}
+                      onChange={(e) => setTokenLabelVisible(e.target.checked)}
+                    />
+                    Show labels
+                  </label>
                 </div>
-                <div className="token-stat-row">
-                  <input
-                    type="number"
-                    placeholder="HP"
-                    value={newTokenHp}
-                    onChange={(e) => setNewTokenHp(e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max HP"
-                    value={newTokenHpMax}
-                    onChange={(e) => setNewTokenHpMax(e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    placeholder="AC"
-                    value={newTokenAc}
-                    onChange={(e) => setNewTokenAc(e.target.value)}
-                  />
-                </div>
-                <button className="btn btn-primary" onClick={handleAddToken} disabled={!newTokenLabel.trim()}>
-                  Add Token
-                </button>
-              </div>
+              </details>
 
+              {/* Add Token sub-section */}
+              <details className="subsection" open>
+                <summary className="subsection-header">Add Token</summary>
+                <div className="subsection-body">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="Label…"
+                      value={newTokenLabel}
+                      onChange={(e) => { setNewTokenLabel(e.target.value); if (pendingMonsterEntry) setPendingMonsterEntry(null) }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
+                      style={{ flex: 1 }}
+                    />
+                    {monsters && (
+                      <button
+                        className="btn btn-secondary"
+                        style={{ fontSize: 11, padding: '4px 8px', whiteSpace: 'nowrap' }}
+                        onClick={() => setShowMonsterSearch(true)}
+                        title="Search monster database"
+                      >
+                        🔍 Monster
+                      </button>
+                    )}
+                  </div>
+                  {pendingMonsterEntry && (
+                    <p className="hint" style={{ fontStyle: 'italic' }}>
+                      From: {pendingMonsterEntry.name}
+                    </p>
+                  )}
+                  <div className="token-type-radios">
+                    {(['player', 'npc', 'enemy'] as const).map((type) => (
+                      <label
+                        key={type}
+                        className={`token-type-radio ${newTokenType === type ? 'token-type-active' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="token-type"
+                          value={type}
+                          checked={newTokenType === type}
+                          onChange={() => handleTypeChange(type)}
+                        />
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="color-swatches">
+                    {TOKEN_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        className={`swatch ${newTokenColor === c ? 'swatch-active' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => setNewTokenColor(c)}
+                      />
+                    ))}
+                    <label
+                      className={`swatch swatch-picker ${!TOKEN_COLORS.includes(newTokenColor) ? 'swatch-active' : ''}`}
+                      style={TOKEN_COLORS.includes(newTokenColor) ? undefined : { background: newTokenColor }}
+                      title="Custom color"
+                    >
+                      <input
+                        type="color"
+                        value={newTokenColor}
+                        onChange={(e) => setNewTokenColor(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="token-stat-row">
+                    <input
+                      type="number"
+                      placeholder="HP"
+                      value={newTokenHp}
+                      onChange={(e) => setNewTokenHp(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max HP"
+                      value={newTokenHpMax}
+                      onChange={(e) => setNewTokenHpMax(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      placeholder="AC"
+                      value={newTokenAc}
+                      onChange={(e) => setNewTokenAc(e.target.value)}
+                    />
+                  </div>
+                  <button className="btn btn-primary" onClick={handleAddToken} disabled={!newTokenLabel.trim()}>
+                    Add Token
+                  </button>
+                </div>
+              </details>
+            </section>
+
+            {/* Token list — grows to fill remaining sidebar space */}
+            <div className="token-list-section">
               <ul className="token-list">
                 {tokens.map((token) => (
                   <li
@@ -631,31 +656,8 @@ export function DMView(): React.JSX.Element {
                   </li>
                 ))}
               </ul>
-            </section>
+            </div>
 
-            {/* Player viewport push/reset */}
-            <section className="sidebar-section">
-              <h3>Player View</h3>
-              <div className="session-buttons">
-                <button
-                  className="btn btn-primary"
-                  title="Push your current pan/zoom to the player view"
-                  onClick={() => {
-                    const vp = mapCanvasRef.current?.getCurrentViewport() ?? null
-                    setPlayerViewport(vp)
-                  }}
-                >
-                  Push View →
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  title="Reset player view to auto-fit"
-                  onClick={() => setPlayerViewport(null)}
-                >
-                  Reset View
-                </button>
-              </div>
-            </section>
           </>
         )}
 
