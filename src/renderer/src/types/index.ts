@@ -1,3 +1,7 @@
+import type { MonsterSheet } from './monster'
+
+export type { MonsterSheet }
+
 export type TokenType = 'player' | 'npc' | 'enemy'
 export type TokenStatus = 'alive' | 'dsa' | 'dead'
 
@@ -13,6 +17,7 @@ export interface Token {
   hp?: number | null
   hpMax?: number | null
   ac?: number | null
+  monsterSheet?: MonsterSheet | null
 }
 
 // A single fog operation - stored as a list so we can replay on new windows

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle } from '../types'
+import type { MonsterEntry } from '../types/monster'
 
 interface GameStore extends GameState {
   // Local UI state
@@ -20,6 +21,10 @@ interface GameStore extends GameState {
   addToken: (token: Omit<Token, 'id'>) => void
   updateToken: (token: Token) => void
   removeToken: (id: string) => void
+
+  // Local DM-only state (not broadcast)
+  monsters: MonsterEntry[] | null
+  setMonsters: (monsters: MonsterEntry[] | null) => void
 
   // Local-only UI actions
   setActiveTool: (tool: GameStore['activeTool']) => void
@@ -50,6 +55,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // GameState extras
   battle: null,
+
+  // DM-local state (not broadcast)
+  monsters: null,
 
   // UI state
   activeTool: 'fog-reveal',
@@ -150,6 +158,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (get().selectedTokenId === id) set({ selectedTokenId: null })
   },
 
+  setMonsters: (monsters) => set({ monsters }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setBrushRadius: (brushRadius) => set({ brushRadius }),
   setTokenRadius: (tokenRadius) => {

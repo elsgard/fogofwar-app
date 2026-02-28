@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useGameStore } from '../store/gameStore'
-import type { Battle, Combatant, Effect, BattleLogEntry, BattleLogKind } from '../types'
+import type { Battle, Combatant, Effect, BattleLogEntry, BattleLogKind, MonsterSheet } from '../types'
+import { CharacterSheetModal } from '../components/CharacterSheetModal'
 import './BattlePanel.css'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -181,12 +182,14 @@ function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: Atta
 interface CombatantRowProps {
   combatant: Combatant
   tokenColor: string | null
+  monsterSheet: MonsterSheet | null
   round: number
   onUpdate: (c: Combatant, extraLog?: BattleLogEntry) => void
   onRemove: (id: string) => void
+  onViewSheet: (sheet: MonsterSheet) => void
 }
 
-function CombatantRow({ combatant: c, tokenColor, round, onUpdate, onRemove }: CombatantRowProps): React.JSX.Element {
+function CombatantRow({ combatant: c, tokenColor, monsterSheet, round, onUpdate, onRemove, onViewSheet }: CombatantRowProps): React.JSX.Element {
   const [editingHp, setEditingHp] = useState(false)
   const [hpInput, setHpInput] = useState('')
   const [showEffectPopover, setShowEffectPopover] = useState(false)
@@ -275,6 +278,14 @@ function CombatantRow({ combatant: c, tokenColor, round, onUpdate, onRemove }: C
         ))}
       </div>
 
+      {monsterSheet && (
+        <button
+          className="btn-icon"
+          title="View character sheet"
+          onClick={() => onViewSheet(monsterSheet)}
+        >📋</button>
+      )}
+
       <div className="combatant-row-actions" style={{ position: 'relative' }}>
         <button
           ref={effectButtonRef}
@@ -317,6 +328,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   const [newIsPlayer, setNewIsPlayer] = useState(false)
   const [noteText, setNoteText] = useState('')
   const [showAttackPopover, setShowAttackPopover] = useState(false)
+  const [showSheet, setShowSheet] = useState<MonsterSheet | null>(null)
   const attackButtonRef = useRef<HTMLButtonElement>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
 
@@ -550,9 +562,11 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
               key={c.id}
               combatant={c}
               tokenColor={linkedToken?.color ?? null}
+              monsterSheet={linkedToken?.monsterSheet ?? null}
               round={battle.round}
               onUpdate={updateCombatant}
               onRemove={removeCombatant}
+              onViewSheet={setShowSheet}
             />
           )
         })}
@@ -672,6 +686,10 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
           </button>
         </div>
       </div>
+
+      {showSheet && (
+        <CharacterSheetModal sheet={showSheet} onClose={() => setShowSheet(null)} />
+      )}
     </div>
   )
 }

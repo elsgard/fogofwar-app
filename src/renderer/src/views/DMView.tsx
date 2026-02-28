@@ -3,8 +3,12 @@ import { MapCanvas } from '../components/MapCanvas'
 import type { MapCanvasHandle } from '../components/MapCanvas'
 import { BattlePanel } from './BattlePanel'
 import { ExportPartyDialog } from '../components/ExportPartyDialog'
+import { MonsterSearchModal } from '../components/MonsterSearchModal'
+import { CharacterSheetModal } from '../components/CharacterSheetModal'
 import { useGameStore } from '../store/gameStore'
-import type { Token, TokenStatus } from '../types'
+import type { Token, TokenStatus, MonsterSheet } from '../types'
+import type { MonsterEntry } from '../types/monster'
+import { entryToSheet } from '../types/monster'
 
 const TOKEN_COLORS = [
   '#4a9eff', // blue
@@ -34,9 +38,12 @@ const TOOL_CYCLE = ['fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as c
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const menubarRef = useRef<HTMLElement>(null)
+  const monsterFileRef = useRef<HTMLInputElement>(null)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | 'battle' | null>(null)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
   const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
+  const [showMonsterSearch, setShowMonsterSearch] = useState(false)
+  const [viewSheet, setViewSheet] = useState<MonsterSheet | null>(null)
 
   const {
     map,
@@ -51,6 +58,7 @@ export function DMView(): React.JSX.Element {
     laserRadius,
     laserColor,
     isDirty,
+    monsters,
     loadMap,
     resetFog,
     addToken,
@@ -65,6 +73,7 @@ export function DMView(): React.JSX.Element {
     setLaserRadius,
     setLaserColor,
     setPlayerViewport,
+    setMonsters,
     saveScene,
     loadScene,
     saveParty,
@@ -77,6 +86,7 @@ export function DMView(): React.JSX.Element {
   const [newTokenHp, setNewTokenHp] = useState('')
   const [newTokenHpMax, setNewTokenHpMax] = useState('')
   const [newTokenAc, setNewTokenAc] = useState('')
+  const [pendingMonsterEntry, setPendingMonsterEntry] = useState<MonsterEntry | null>(null)
 
   const selectedToken = tokens.find((t) => t.id === selectedTokenId) ?? null
 
@@ -140,6 +150,37 @@ export function DMView(): React.JSX.Element {
     setNewTokenColor(TYPE_DEFAULT_COLORS[type])
   }
 
+  function handleMonsterFileLoad(e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string)
+        if (Array.isArray(data)) {
+          setMonsters(data as MonsterEntry[])
+        } else {
+          alert('Invalid monster database format. Expected a JSON array.')
+        }
+      } catch {
+        alert('Failed to parse monster database JSON.')
+      }
+    }
+    reader.readAsText(file)
+    // Reset so the same file can be reloaded
+    if (monsterFileRef.current) monsterFileRef.current.value = ''
+  }
+
+  function handleMonsterSelect(entry: MonsterEntry): void {
+    setNewTokenLabel(entry.name)
+    setNewTokenHp(entry.maxHitPoints != null ? String(entry.maxHitPoints) : '')
+    setNewTokenHpMax(entry.maxHitPoints != null ? String(entry.maxHitPoints) : '')
+    setNewTokenAc(entry.ac != null ? String(entry.ac) : '')
+    setNewTokenType('enemy')
+    setNewTokenColor(TYPE_DEFAULT_COLORS.enemy)
+    setPendingMonsterEntry(entry)
+  }
+
   function handleAddToken(): void {
     if (!map || !newTokenLabel.trim()) return
     addToken({
@@ -152,11 +193,13 @@ export function DMView(): React.JSX.Element {
       hp: newTokenHp.trim() ? parseInt(newTokenHp, 10) : null,
       hpMax: newTokenHpMax.trim() ? parseInt(newTokenHpMax, 10) : null,
       ac: newTokenAc.trim() ? parseInt(newTokenAc, 10) : null,
+      monsterSheet: pendingMonsterEntry ? entryToSheet(pendingMonsterEntry) : null,
     })
     setNewTokenLabel('')
     setNewTokenHp('')
     setNewTokenHpMax('')
     setNewTokenAc('')
+    setPendingMonsterEntry(null)
   }
 
   function handleToggleVisibility(token: Token): void {
@@ -192,6 +235,7 @@ export function DMView(): React.JSX.Element {
       hp: token.hp ?? null,
       hpMax: token.hpMax ?? null,
       ac: token.ac ?? null,
+      monsterSheet: token.monsterSheet ?? null,
     })
   }
 
@@ -207,6 +251,15 @@ export function DMView(): React.JSX.Element {
 
   return (
     <div className="dm-view">
+
+      {/* Hidden file input for monster database */}
+      <input
+        ref={monsterFileRef}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={handleMonsterFileLoad}
+      />
 
       {/* ── Menu bar ── */}
       <nav className="menubar" ref={menubarRef} onClick={() => setOpenMenu(null)}>
@@ -238,6 +291,15 @@ export function DMView(): React.JSX.Element {
               <button className="menu-dropdown-item" onClick={() => { loadParty(); setOpenMenu(null) }}>
                 Import Party…
               </button>
+              <div className="menu-dropdown-divider" />
+              <button className="menu-dropdown-item" onClick={() => { monsterFileRef.current?.click(); setOpenMenu(null) }}>
+                {monsters ? `Reload Monster DB… (${monsters.length})` : 'Load Monster DB…'}
+              </button>
+              {monsters && (
+                <button className="menu-dropdown-item" onClick={() => { setMonsters(null); setOpenMenu(null) }}>
+                  Unload Monster DB
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -426,13 +488,31 @@ export function DMView(): React.JSX.Element {
                 Show labels
               </label>
               <div className="token-form">
-                <input
-                  type="text"
-                  placeholder="Label…"
-                  value={newTokenLabel}
-                  onChange={(e) => setNewTokenLabel(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
-                />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    type="text"
+                    placeholder="Label…"
+                    value={newTokenLabel}
+                    onChange={(e) => { setNewTokenLabel(e.target.value); if (pendingMonsterEntry) setPendingMonsterEntry(null) }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
+                    style={{ flex: 1 }}
+                  />
+                  {monsters && (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: 11, padding: '4px 8px', whiteSpace: 'nowrap' }}
+                      onClick={() => setShowMonsterSearch(true)}
+                      title="Search monster database"
+                    >
+                      🔍 Monster
+                    </button>
+                  )}
+                </div>
+                {pendingMonsterEntry && (
+                  <p className="hint" style={{ fontStyle: 'italic' }}>
+                    From: {pendingMonsterEntry.name}
+                  </p>
+                )}
                 <div className="token-type-radios">
                   {(['player', 'npc', 'enemy'] as const).map((type) => (
                     <label
@@ -530,6 +610,15 @@ export function DMView(): React.JSX.Element {
                     >
                       ❐
                     </button>
+                    {token.monsterSheet && (
+                      <button
+                        className="btn-icon"
+                        title="View character sheet"
+                        onClick={(e) => { e.stopPropagation(); setViewSheet(token.monsterSheet!) }}
+                      >
+                        📋
+                      </button>
+                    )}
                     <button
                       className="btn-icon remove"
                       title="Remove token"
@@ -625,6 +714,15 @@ export function DMView(): React.JSX.Element {
                 <input type="number" placeholder="AC" value={editAc}
                   onChange={(e) => setEditAc(e.target.value)} onBlur={saveEditStats} />
               </div>
+              {selectedToken.monsterSheet && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: 12 }}
+                  onClick={() => setViewSheet(selectedToken.monsterSheet!)}
+                >
+                  📋 View Character Sheet
+                </button>
+              )}
               <p className="hint">
                 Position: ({Math.round(selectedToken.x)}, {Math.round(selectedToken.y)})
               </p>
@@ -641,6 +739,21 @@ export function DMView(): React.JSX.Element {
           tokens={tokens}
           onExport={(selected) => { saveParty(selected); setShowExportPartyDialog(false) }}
           onClose={() => setShowExportPartyDialog(false)}
+        />
+      )}
+
+      {showMonsterSearch && monsters && (
+        <MonsterSearchModal
+          monsters={monsters}
+          onSelect={handleMonsterSelect}
+          onClose={() => setShowMonsterSearch(false)}
+        />
+      )}
+
+      {viewSheet && (
+        <CharacterSheetModal
+          sheet={viewSheet}
+          onClose={() => setViewSheet(null)}
         />
       )}
 
