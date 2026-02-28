@@ -40,6 +40,15 @@ const api = {
 
   openInBrowser: (): void => ipcRenderer.send(IPC.OPEN_IN_BROWSER),
 
+  sendLaserPointer: (pos: { x: number; y: number } | null): void =>
+    ipcRenderer.send(IPC.LASER_POINTER, pos),
+
+  onLaserPointer: (cb: (pos: { x: number; y: number } | null) => void): (() => void) => {
+    const handler = (_: Electron.IpcRendererEvent, pos: { x: number; y: number } | null): void => cb(pos)
+    ipcRenderer.on(IPC.LASER_POINTER, handler)
+    return () => ipcRenderer.off(IPC.LASER_POINTER, handler)
+  },
+
   onStateUpdate: (cb: (state: GameState) => void): (() => void) => {
     const handler = (_: Electron.IpcRendererEvent, state: GameState): void => cb(state)
     ipcRenderer.on(IPC.STATE_UPDATE, handler)

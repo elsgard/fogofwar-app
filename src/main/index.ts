@@ -181,6 +181,17 @@ function createPlayerWindow(): void {
   playerWindow.loadURL(rendererUrl('player'))
 }
 
+function broadcastLaser(pos: { x: number; y: number } | null): void {
+  const alive = sseClients.filter((c) => !c.destroyed)
+  sseClients = alive
+  // Use a named SSE event so it doesn't interfere with state 'message' events
+  const payload = `event: laser-pointer\ndata: ${JSON.stringify(pos)}\n\n`
+  for (const client of alive) client.write(payload)
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.webContents.send(IPC.LASER_POINTER, pos)
+  }
+}
+
 function broadcastState(): void {
   const state = gs.getState()
   dmWindow?.webContents.send(IPC.STATE_UPDATE, state)
@@ -357,6 +368,10 @@ app.whenReady().then(() => {
 
   ipcMain.on(IPC.OPEN_PLAYER_WINDOW, () => {
     createPlayerWindow()
+  })
+
+  ipcMain.on(IPC.LASER_POINTER, (_, pos: { x: number; y: number } | null) => {
+    broadcastLaser(pos)
   })
 
   ipcMain.on(IPC.OPEN_IN_BROWSER, () => {

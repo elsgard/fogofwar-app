@@ -22,6 +22,10 @@ function App(): React.JSX.Element {
 
       const es = new EventSource(`http://localhost:${SSE_PORT}/events`)
       es.onmessage = (e) => applyState(JSON.parse(e.data) as GameState)
+      es.addEventListener('laser-pointer', (e) => {
+        const pos = JSON.parse(e.data) as { x: number; y: number } | null
+        window.dispatchEvent(new CustomEvent('laser-pointer', { detail: pos }))
+      })
       return () => es.close()
     }
 

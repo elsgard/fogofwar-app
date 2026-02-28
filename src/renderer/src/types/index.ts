@@ -73,4 +73,5 @@ export const IPC = {
   LOAD_SCENE: 'game:load-scene',
   STATE_UPDATE: 'game:state-update', // main → renderer broadcast
   OPEN_IN_BROWSER: 'game:open-in-browser',
+  LASER_POINTER: 'game:laser-pointer',
 } as const

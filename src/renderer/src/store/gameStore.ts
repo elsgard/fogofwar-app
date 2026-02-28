@@ -3,9 +3,11 @@ import type { GameState, FogOp, Token, MapInfo, PlayerViewport } from '../types'
 
 interface GameStore extends GameState {
   // Local UI state
-  activeTool: 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan'
+  activeTool: 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser'
   brushRadius: number
   selectedTokenId: string | null
+  laserRadius: number
+  laserColor: string
 
   // Setters driven by IPC state updates
   applyState: (state: GameState) => void
@@ -26,6 +28,8 @@ interface GameStore extends GameState {
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void
   setSelectedTokenId: (id: string | null) => void
+  setLaserRadius: (r: number) => void
+  setLaserColor: (color: string) => void
   setPlayerViewport: (vp: PlayerViewport | null) => void
 
   // Persistence
@@ -48,6 +52,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   tokenLabelSize: 14,
   tokenLabelVisible: true,
   selectedTokenId: null,
+  laserRadius: 8,
+  laserColor: '#ff2222',
   isDirty: false,
 
   applyState: (state) => set((s) => ({
@@ -146,6 +152,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ tokenLabelVisible, isDirty: true })
   },
   setSelectedTokenId: (selectedTokenId) => set({ selectedTokenId }),
+  setLaserRadius: (laserRadius) => set({ laserRadius }),
+  setLaserColor: (laserColor) => set({ laserColor }),
   setPlayerViewport: (vp) => {
     window.api?.setPlayerViewport(vp)
     set({ playerViewport: vp })

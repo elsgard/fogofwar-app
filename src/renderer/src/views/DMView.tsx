@@ -27,7 +27,7 @@ const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
   enemy: '#e53935',
 }
 
-const TOOL_CYCLE = ['fog-reveal', 'fog-hide', 'token-move', 'pan'] as const
+const TOOL_CYCLE = ['fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as const
 
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
@@ -43,6 +43,8 @@ export function DMView(): React.JSX.Element {
     tokenLabelSize,
     tokenLabelVisible,
     selectedTokenId,
+    laserRadius,
+    laserColor,
     isDirty,
     loadMap,
     resetFog,
@@ -55,6 +57,8 @@ export function DMView(): React.JSX.Element {
     setTokenLabelSize,
     setTokenLabelVisible,
     setSelectedTokenId,
+    setLaserRadius,
+    setLaserColor,
     setPlayerViewport,
     saveScene,
     loadScene,
@@ -73,6 +77,7 @@ export function DMView(): React.JSX.Element {
         case 'h': setActiveTool('fog-hide'); break
         case 't': setActiveTool('token-move'); break
         case 'p': setActiveTool('pan'); break
+        case 'l': setActiveTool('laser'); break
         case 'tab': {
           e.preventDefault()
           const idx = TOOL_CYCLE.indexOf(activeTool as typeof TOOL_CYCLE[number])
@@ -237,6 +242,7 @@ export function DMView(): React.JSX.Element {
                     { id: 'fog-hide', label: 'Hide Fog', key: 'H' },
                     { id: 'token-move', label: 'Move Token', key: 'T' },
                     { id: 'pan', label: 'Pan / Zoom', key: 'P' },
+                    { id: 'laser', label: 'Laser Pointer', key: 'L' },
                   ] as const
                 ).map((tool) => (
                   <button
@@ -261,6 +267,38 @@ export function DMView(): React.JSX.Element {
                     onChange={(e) => setBrushRadius(Number(e.target.value))}
                   />
                 </label>
+              )}
+
+              {activeTool === 'laser' && (
+                <>
+                  <label className="brush-label">
+                    Pointer size: {laserRadius}px
+                    <input
+                      type="range"
+                      min={4}
+                      max={32}
+                      value={laserRadius}
+                      onChange={(e) => setLaserRadius(Number(e.target.value))}
+                    />
+                  </label>
+                  <div className="color-swatches">
+                    {['#ff2222', '#ff9800', '#ffeb3b', '#4caf50', '#4a9eff', '#ffffff'].map((c) => (
+                      <button
+                        key={c}
+                        className={`swatch ${laserColor === c ? 'swatch-active' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => setLaserColor(c)}
+                      />
+                    ))}
+                    <label
+                      className={`swatch swatch-picker ${!['#ff2222','#ff9800','#ffeb3b','#4caf50','#4a9eff','#ffffff'].includes(laserColor) ? 'swatch-active' : ''}`}
+                      style={!['#ff2222','#ff9800','#ffeb3b','#4caf50','#4a9eff','#ffffff'].includes(laserColor) ? { background: laserColor } : undefined}
+                      title="Custom color"
+                    >
+                      <input type="color" value={laserColor} onChange={(e) => setLaserColor(e.target.value)} />
+                    </label>
+                  </div>
+                </>
               )}
 
               <button className="btn btn-danger" onClick={resetFog}>

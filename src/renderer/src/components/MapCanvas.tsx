@@ -3,6 +3,7 @@ import { Application, Container, Graphics } from 'pixi.js'
 import { MapLayer } from '../pixi/MapLayer'
 import { FogLayer } from '../pixi/FogLayer'
 import { TokenLayer } from '../pixi/TokenLayer'
+import { LaserLayer } from '../pixi/LaserLayer'
 import { useGameStore } from '../store/gameStore'
 import type { FogOp, PlayerViewport } from '../types'
 
@@ -26,9 +27,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const mapLayerRef = useRef<MapLayer | null>(null)
   const fogLayerRef = useRef<FogLayer | null>(null)
   const tokenLayerRef = useRef<TokenLayer | null>(null)
+  const laserLayerRef = useRef<LaserLayer | null>(null)
 
   // Brush cursor — lives on app.stage (screen space, unaffected by pan/zoom)
   const brushCursorRef = useRef<Graphics | null>(null)
+
+  // Throttle laser IPC sends to ~60fps
+  const lastLaserSendRef = useRef(0)
 
   // Interaction state (refs — no re-renders needed)
   const isPaintingRef = useRef(false)
@@ -52,6 +57,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const tokenLabelSize = useGameStore((s) => s.tokenLabelSize)
   const tokenLabelVisible = useGameStore((s) => s.tokenLabelVisible)
   const selectedTokenId = useGameStore((s) => s.selectedTokenId)
+  const laserRadius = useGameStore((s) => s.laserRadius)
+  const laserColor = useGameStore((s) => s.laserColor)
   const { commitStroke, updateToken, setSelectedTokenId } = useGameStore()
 
   // ── PixiJS init ──────────────────────────────────────────────────────────
@@ -97,16 +104,22 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         tokenLayer.setLabelSize(initLabelSize)
         tokenLayer.setLabelsVisible(initLabelVisible)
 
+        const laserLayer = new LaserLayer()
+
         // DM: tokens above fog (always visible)
         // Player: tokens below fog (hidden by unrevealed areas)
+        // Laser is always on top of everything in both views
         if (isPlayerView) {
-          world.addChild(mapLayer, tokenLayer, fogLayer)
+          world.addChild(mapLayer, tokenLayer, fogLayer, laserLayer)
         } else {
-          world.addChild(mapLayer, fogLayer, tokenLayer)
+          world.addChild(mapLayer, fogLayer, tokenLayer, laserLayer)
         }
         mapLayerRef.current = mapLayer
         fogLayerRef.current = fogLayer
         tokenLayerRef.current = tokenLayer
+        laserLayerRef.current = laserLayer
+
+        app.ticker.add(() => laserLayer.tick())
 
         // Brush cursor lives in stage space (not affected by world pan/zoom)
         const brushCursor = new Graphics()
@@ -168,6 +181,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       mapLayerRef.current = null
       fogLayerRef.current = null
       tokenLayerRef.current = null
+      laserLayerRef.current = null
       brushCursorRef.current = null
     }
   }, [isPlayerView])
@@ -243,6 +257,35 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   useEffect(() => {
     if (!isPlayerView) tokenLayerRef.current?.setSelectedToken(selectedTokenId)
   }, [selectedTokenId, isPlayerView])
+
+  // ── Receive laser pointer (Electron player window via IPC) ────────────────
+  useEffect(() => {
+    if (!window.api) return
+    return window.api.onLaserPointer((pos) => {
+      if (pos) laserLayerRef.current?.setPosition(pos.x, pos.y, pos.radius, pos.color)
+      else laserLayerRef.current?.clearPointer()
+    })
+  }, [])
+
+  // ── Receive laser pointer (browser player via custom DOM event) ───────────
+  useEffect(() => {
+    if (window.api) return // handled by IPC above
+    const handler = (e: Event): void => {
+      const pos = (e as CustomEvent<{ x: number; y: number; radius: number; color: string } | null>).detail
+      if (pos) laserLayerRef.current?.setPosition(pos.x, pos.y, pos.radius, pos.color)
+      else laserLayerRef.current?.clearPointer()
+    }
+    window.addEventListener('laser-pointer', handler)
+    return () => window.removeEventListener('laser-pointer', handler)
+  }, [])
+
+  // ── Clear laser when DM switches away from laser tool ────────────────────
+  useEffect(() => {
+    if (!isPlayerView && activeTool !== 'laser') {
+      laserLayerRef.current?.clearPointer()
+      window.api?.sendLaserPointer(null)
+    }
+  }, [activeTool, isPlayerView])
 
   // ── React to token radius changes ────────────────────────────────────────
   useEffect(() => {
@@ -454,13 +497,24 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         paintAt(x, y, activeTool, brushRadius)
       }
 
+      if (activeTool === 'laser') {
+        const { x, y } = toMapCoords(e)
+        laserLayerRef.current?.setPosition(x, y, laserRadius, laserColor)
+        const now = Date.now()
+        if (now - lastLaserSendRef.current >= 16) {
+          lastLaserSendRef.current = now
+          window.api?.sendLaserPointer({ x, y, radius: laserRadius, color: laserColor })
+        }
+        return
+      }
+
       // Show a hovered token's label in DM view even when labels are globally hidden
       if (!tokenLabelVisible) {
         const { x, y } = toMapCoords(e)
         tokenLayerRef.current?.setHoveredToken(tokenLayerRef.current.hitTest(x, y))
       }
     },
-    [isPlayerView, activeTool, brushRadius, tokenLabelVisible, toMapCoords, paintAt, updateBrushCursor]
+    [isPlayerView, activeTool, brushRadius, tokenLabelVisible, laserRadius, laserColor, toMapCoords, paintAt, updateBrushCursor]
   )
 
   const onPointerUp = useCallback(
@@ -492,6 +546,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     (e: React.PointerEvent) => {
       brushCursorRef.current?.clear()
       tokenLayerRef.current?.setHoveredToken(null)
+      laserLayerRef.current?.clearPointer()
+      window.api?.sendLaserPointer(null)
       onPointerUp(e)
     },
     [onPointerUp]

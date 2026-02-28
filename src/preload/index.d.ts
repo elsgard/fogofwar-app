@@ -19,6 +19,8 @@ export interface FogOfWarAPI {
   setPlayerViewport: (vp: PlayerViewport | null) => void
   openPlayerWindow: () => void
   openInBrowser: () => void
+  sendLaserPointer: (pos: { x: number; y: number; radius: number; color: string } | null) => void
+  onLaserPointer: (cb: (pos: { x: number; y: number; radius: number; color: string } | null) => void) => () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void
 }
 
