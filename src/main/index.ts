@@ -43,10 +43,17 @@ function startSseServer(): void {
 
     const pathname = new URL(req.url ?? '/', `http://localhost:${SSE_PORT}`).pathname
 
-    // Current game state snapshot
+    // Current game state snapshot (used by browser player on initial load).
+    // Include the cached map dataUrl so browser players that connect after the map
+    // was loaded still receive the image (main state stores '' when filePath is set).
     if (pathname === '/state') {
+      const state = gs.getState()
+      const stateForBrowser = {
+        ...state,
+        map: state.map ? { ...state.map, dataUrl: sseMapDataUrlCache } : null,
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify(gs.getState()))
+      res.end(JSON.stringify(stateForBrowser))
       return
     }
 
@@ -226,10 +233,14 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.fogofwar')
   startSseServer()
 
-  // Register a protocol to safely serve local image files chosen by the DM
+  // Register a protocol to safely serve local image files chosen by the DM.
+  // On Linux/Mac, filePath is an absolute path like '/home/user/map.png', so slicing
+  // 'fogmap://' gives '/home/user/map.png' and we use 'file://' + path = 'file:///home/...'.
+  // On Windows, filePath is 'C:/path/map.png' (no leading slash), so we use 'file:///C:/...'.
   protocol.handle('fogmap', (request) => {
     const filePath = decodeURIComponent(request.url.slice('fogmap://'.length))
-    return net.fetch(`file:///${filePath}`)
+    const fileUrl = filePath.startsWith('/') ? `file://${filePath}` : `file:///${filePath}`
+    return net.fetch(fileUrl)
   })
 
   app.on('browser-window-created', (_, window) => {
