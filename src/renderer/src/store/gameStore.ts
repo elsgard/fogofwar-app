@@ -88,7 +88,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? null
         : state.map.dataUrl
           ? (s.map?.dataUrl === state.map.dataUrl ? s.map : state.map)
-          : s.map,
+          : state.map.filePath
+            ? (s.map?.filePath === state.map.filePath ? s.map : state.map)
+            : s.map,
       fogOps: state.fogOps,
       tokens: state.tokens,
       tokenRadius: state.tokenRadius,
@@ -118,6 +120,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const mapInfo: MapInfo = {
       dataUrl: result.dataUrl,
+      filePath: result.filePath,
       name: result.name,
       width: img.naturalWidth,
       height: img.naturalHeight,

@@ -6,7 +6,7 @@ import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterR
 const api = {
   getState: (): Promise<GameState> => ipcRenderer.invoke(IPC.GET_STATE),
 
-  loadMap: (): Promise<{ dataUrl: string; name: string; ext: string } | null> =>
+  loadMap: (): Promise<{ dataUrl: string; name: string; ext: string; filePath: string } | null> =>
     ipcRenderer.invoke(IPC.LOAD_MAP),
 
   commitMap: (mapInfo: MapInfo): void =>

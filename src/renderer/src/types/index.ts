@@ -28,10 +28,11 @@ export type FogOp =
   | { type: 'reset' }
 
 export interface MapInfo {
-  dataUrl: string // base64 data URL
+  dataUrl: string   // base64 data URL; '' when filePath is used instead
+  filePath?: string // absolute path on DM's disk (set when loaded from file dialog)
   name: string
-  width: number // natural image width in pixels
-  height: number // natural image height in pixels
+  width: number     // natural image width in pixels
+  height: number    // natural image height in pixels
 }
 
 export interface PlayerViewport {
