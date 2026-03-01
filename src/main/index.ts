@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, GameState, SaveFile, PartyFile, PlayerViewport, Battle } from '../renderer/src/types'
+import type { FogOp, GameState, MapInfo, SaveFile, PartyFile, PlayerViewport, Battle } from '../renderer/src/types'
 import * as gs from './gameState'
 
 let dmWindow: BrowserWindow | null = null
@@ -14,11 +14,13 @@ let playerWindow: BrowserWindow | null = null
 // ── SSE server (browser player view) ─────────────────────────────────────────
 const SSE_PORT = 7654
 let sseClients: ServerResponse[] = []
-// Track the last map dataUrl we sent via SSE so we can omit it when unchanged.
+// Track the last map identity we sent via SSE so we can omit the dataUrl when unchanged.
+// Map identity is the filePath when loaded from disk, or the dataUrl when loaded from a save.
 // The full dataUrl is large (base64 image) and was causing the "one-behind" bug:
 // each write() to the HTTP response was buffered until the next write() flushed it.
 // By stripping the dataUrl from routine fog-op updates we keep each SSE event tiny.
-let sseLastMapDataUrl = ''
+let sseLastMapKey = ''
+let sseMapDataUrlCache = '' // pre-read dataUrl for SSE clients; updated whenever the map changes
 let sseLastBattleLogLen = 0
 let sseLastBattleId = ''
 
@@ -101,10 +103,11 @@ function broadcastSse(state: GameState): void {
   const alive = sseClients.filter((c) => !c.destroyed)
   sseClients = alive
 
-  // Only include map.dataUrl when it has changed. On every fog-op update the map
-  // is the same, so we strip the large base64 blob and keep the SSE event tiny.
-  const mapChanged = (state.map?.dataUrl ?? '') !== sseLastMapDataUrl
-  sseLastMapDataUrl = state.map?.dataUrl ?? ''
+  // Map identity: use filePath (file-dialog loads) or dataUrl (save-file loads).
+  // Only send the full dataUrl when the map has changed; strip it on subsequent events.
+  const mapKey = state.map?.filePath ?? state.map?.dataUrl ?? ''
+  const mapChanged = mapKey !== sseLastMapKey
+  sseLastMapKey = mapKey
 
   const battleLogLen = state.battle?.log.length ?? 0
   const battleLogChanged = state.battle?.id !== sseLastBattleId || battleLogLen !== sseLastBattleLogLen
@@ -113,7 +116,13 @@ function broadcastSse(state: GameState): void {
 
   const sseState: GameState = {
     ...state,
-    map: mapChanged ? state.map : state.map ? { ...state.map, dataUrl: '' } : null,
+    // When the map changed, include the dataUrl from cache so browser players get the image.
+    // When the map is unchanged, strip the dataUrl to keep the SSE event tiny.
+    map: !state.map
+      ? null
+      : mapChanged
+        ? { ...state.map, dataUrl: sseMapDataUrlCache }
+        : { ...state.map, dataUrl: '' },
     battle: state.battle && !battleLogChanged
       ? { ...state.battle, log: [] }
       : state.battle,
@@ -232,7 +241,7 @@ app.whenReady().then(() => {
   // Returns the full current game state (renderer calls this on mount)
   ipcMain.handle(IPC.GET_STATE, () => gs.getState())
 
-  // Opens a native file dialog and returns the selected image as a data URL
+  // Opens a native file dialog and returns the selected image as a data URL + file path
   ipcMain.handle(IPC.LOAD_MAP, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: 'Select Map Image',
@@ -241,9 +250,9 @@ app.whenReady().then(() => {
     })
     if (canceled || filePaths.length === 0) return null
 
-    const filePath = filePaths[0]
-    const buffer = await readFile(filePath)
-    const ext = filePath.split('.').pop()?.toLowerCase() ?? 'png'
+    const selectedPath = filePaths[0]
+    const buffer = await readFile(selectedPath)
+    const ext = selectedPath.split('.').pop()?.toLowerCase() ?? 'png'
     const mime =
       ext === 'jpg' || ext === 'jpeg'
         ? 'image/jpeg'
@@ -256,12 +265,20 @@ app.whenReady().then(() => {
 
     // Measure natural dimensions by sending the dataUrl to the renderer
     // (dimensions come back from the renderer via a second message)
-    return { dataUrl, name: filePath.split('/').pop() ?? filePath, ext }
+    return { dataUrl, name: selectedPath.split('/').pop() ?? selectedPath, ext, filePath: selectedPath }
   })
 
-  // Renderer sends map info including dimensions once the image is loaded
-  ipcMain.on(IPC.LOAD_MAP + ':commit', (_, mapInfo) => {
-    gs.setMap(mapInfo)
+  // Renderer sends map info including dimensions once the image is loaded.
+  // When a filePath is present (file-dialog load), we cache the dataUrl for SSE and strip
+  // it from main state — the large base64 blob no longer lives in the authoritative state
+  // and won't be cloned/serialized on every subsequent broadcastState() call.
+  ipcMain.on(IPC.LOAD_MAP + ':commit', (_, mapInfo: MapInfo) => {
+    sseMapDataUrlCache = mapInfo.dataUrl
+    if (mapInfo.filePath) {
+      gs.setMap({ ...mapInfo, dataUrl: '' })
+    } else {
+      gs.setMap(mapInfo)
+    }
     broadcastState()
   })
 
@@ -324,10 +341,25 @@ app.whenReady().then(() => {
     if (!filePath) return { success: false }
 
     const state = gs.getState()
+
+    // When the map was loaded from disk (filePath set, dataUrl stripped from state),
+    // re-read the file to embed the full dataUrl in the save so it remains self-contained.
+    let mapForSave = state.map
+    if (state.map && !state.map.dataUrl && state.map.filePath) {
+      const buf = await readFile(state.map.filePath)
+      const ext = state.map.filePath.split('.').pop()?.toLowerCase() ?? 'png'
+      const mime =
+        ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+        : ext === 'webp' ? 'image/webp'
+        : ext === 'gif'  ? 'image/gif'
+        : 'image/png'
+      mapForSave = { ...state.map, dataUrl: `data:${mime};base64,${buf.toString('base64')}` }
+    }
+
     const save: SaveFile = {
       version: app.getVersion(),
       savedAt: new Date().toISOString(),
-      map: state.map,
+      map: mapForSave,
       fogOps: state.fogOps,
       tokens: state.tokens,
       tokenRadius: state.tokenRadius,
@@ -374,6 +406,8 @@ app.whenReady().then(() => {
       }
 
       gs.loadSave(save)
+      // Update SSE cache so browser players receive the correct map image on next broadcast.
+      sseMapDataUrlCache = save.map?.dataUrl ?? ''
       broadcastState()
       return { success: true }
     }

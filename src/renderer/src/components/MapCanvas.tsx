@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import type { MapInfo } from '../types'
 import { Application, Container, Graphics } from 'pixi.js'
 import { MapLayer } from '../pixi/MapLayer'
 import { FogLayer } from '../pixi/FogLayer'
@@ -6,6 +7,12 @@ import { TokenLayer } from '../pixi/TokenLayer'
 import { LaserLayer } from '../pixi/LaserLayer'
 import { useGameStore } from '../store/gameStore'
 import type { FogOp, PlayerViewport } from '../types'
+
+function resolveMapUrl(map: MapInfo): string {
+  if (map.dataUrl) return map.dataUrl
+  if (map.filePath) return `fogmap://${map.filePath}`
+  return ''
+}
 
 interface Props {
   isPlayerView?: boolean
@@ -163,7 +170,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
           world.y = (availH - currentMap.height * scale) / 2
 
           // Now load the map image (may take hundreds of ms for large images).
-          await mapLayer.setMap(currentMap.dataUrl, currentMap.width, currentMap.height)
+          await mapLayer.setMap(resolveMapUrl(currentMap), currentMap.width, currentMap.height)
           if (cancelled) return
           // Re-fit now that mapLayer.mapWidth is set (needed for future fitWorld() calls).
           fitWorld()
@@ -215,7 +222,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       fogLayer.applyOps(currentFogOps)
       prevFogOpsLenRef.current = currentFogOps.length
 
-      await mapLayer.setMap(map.dataUrl, map.width, map.height)
+      await mapLayer.setMap(resolveMapUrl(map), map.width, map.height)
       if (cancelled) return
       fitWorld()
     }

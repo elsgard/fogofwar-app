@@ -3,7 +3,7 @@ import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterR
 
 export interface FogOfWarAPI {
   getState: () => Promise<GameState>
-  loadMap: () => Promise<{ dataUrl: string; name: string; ext: string } | null>
+  loadMap: () => Promise<{ dataUrl: string; name: string; ext: string; filePath: string } | null>
   commitMap: (mapInfo: MapInfo) => void
   addFogOp: (op: FogOp) => void
   batchFogOps: (ops: FogOp[]) => void
