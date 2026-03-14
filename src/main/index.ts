@@ -24,6 +24,9 @@ let sseLastMapKey = ''
 let sseMapDataUrlCache = '' // pre-read dataUrl for SSE clients; updated whenever the map changes
 let sseLastBattleLogLen = 0
 let sseLastBattleId = ''
+// Track fog snapshot identity for SSE (compare first 200 chars — two different snapshots
+// will almost always differ within this prefix; avoids comparing multi-MB strings on every event).
+let sseLastSnapshotKey = ''
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -122,6 +125,10 @@ function broadcastSse(state: GameState): void {
   sseLastBattleId = state.battle?.id ?? ''
   sseLastBattleLogLen = battleLogLen
 
+  const snapshotKey = state.fogSnapshot?.slice(0, 200) ?? ''
+  const snapshotChanged = snapshotKey !== sseLastSnapshotKey
+  sseLastSnapshotKey = snapshotKey
+
   const sseState: GameState = {
     ...state,
     // When the map changed, include the dataUrl from cache so browser players get the image.
@@ -134,6 +141,11 @@ function broadcastSse(state: GameState): void {
     battle: state.battle && !battleLogChanged
       ? { ...state.battle, log: [] }
       : state.battle,
+    // Strip snapshot dataUrl when unchanged (it can be several MB).
+    // '' signals the client to keep its cached snapshot; null means no snapshot.
+    fogSnapshot: snapshotChanged
+      ? state.fogSnapshot
+      : (state.fogSnapshot !== null ? '' : null),
   }
 
   const payload = `data: ${JSON.stringify(sseState)}\n\n`
@@ -309,6 +321,11 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.COMPACT_FOG, (_, snapshotDataUrl: string) => {
+    gs.compactFog(snapshotDataUrl)
+    broadcastState()
+  })
+
   ipcMain.on(IPC.ADD_TOKEN, (_, token) => {
     gs.addToken(token)
     broadcastState()
@@ -373,6 +390,7 @@ app.whenReady().then(() => {
       savedAt: new Date().toISOString(),
       map: mapForSave,
       fogOps: state.fogOps,
+      fogSnapshot: state.fogSnapshot ?? undefined,
       tokens: state.tokens,
       tokenRadius: state.tokenRadius,
       tokenLabelSize: state.tokenLabelSize,

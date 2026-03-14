@@ -20,6 +20,7 @@ interface GameStore extends GameState {
   addFogOp: (op: FogOp) => void
   commitStroke: (ops: FogOp[]) => void
   resetFog: () => void
+  compactFog: (snapshotDataUrl: string) => void
   addToken: (token: Omit<Token, 'id'>) => void
   updateToken: (token: Token) => void
   removeToken: (id: string) => void
@@ -55,6 +56,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // GameState
   map: null,
   fogOps: [],
+  fogSnapshot: null,
   tokens: [],
   playerViewport: null,
 
@@ -92,6 +94,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
             ? (s.map?.filePath === state.map.filePath ? s.map : state.map)
             : s.map,
       fogOps: state.fogOps,
+      // SSE lite updates use '' to signal "snapshot unchanged — keep cached".
+      // null means no snapshot; a dataUrl means a new snapshot was set.
+      fogSnapshot: state.fogSnapshot === '' ? s.fogSnapshot : (state.fogSnapshot ?? null),
       tokens: state.tokens,
       tokenRadius: state.tokenRadius,
       tokenLabelSize: state.tokenLabelSize,
@@ -147,7 +152,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   resetFog: () => {
     window.api.resetFog()
-    set({ fogOps: [], isDirty: true })
+    set({ fogOps: [], fogSnapshot: null, isDirty: true })
+  },
+
+  compactFog: (snapshotDataUrl) => {
+    window.api?.compactFog(snapshotDataUrl)
+    set({ fogOps: [], fogSnapshot: snapshotDataUrl, isDirty: true })
   },
 
   addToken: (partial) => {

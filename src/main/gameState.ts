@@ -4,6 +4,7 @@ import { applyFogOp } from '../shared/fogOps'
 const state: GameState = {
   map: null,
   fogOps: [],
+  fogSnapshot: null,
   tokens: [],
   tokenRadius: 20,
   tokenLabelSize: 14,
@@ -33,6 +34,12 @@ export function addFogOp(op: FogOp): void {
 
 export function resetFog(): void {
   state.fogOps = []
+  state.fogSnapshot = null
+}
+
+export function compactFog(snapshotDataUrl: string): void {
+  state.fogOps = []
+  state.fogSnapshot = snapshotDataUrl
 }
 
 export function addToken(token: Token): void {
@@ -79,6 +86,7 @@ export function importParty(tokens: Token[]): void {
 export function loadSave(save: SaveFile): void {
   state.map = save.map
   state.fogOps = save.fogOps
+  state.fogSnapshot = save.fogSnapshot ?? null
   state.tokens = save.tokens
   state.tokenRadius = save.tokenRadius
   state.tokenLabelSize = save.tokenLabelSize

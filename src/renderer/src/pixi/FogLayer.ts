@@ -37,11 +37,19 @@ export class FogLayer extends Container {
 
   /**
    * Rebuild the fog texture from scratch by replaying all ops.
+   * If snapshotCanvas is provided, it is used as the base layer instead of
+   * solid black — allows compacted fog state to be restored without replaying
+   * thousands of old ops.
    * Called on initial load and on IPC state sync.
    */
-  applyOps(ops: FogOp[]): void {
+  applyOps(ops: FogOp[], snapshotCanvas?: HTMLCanvasElement | null): void {
     if (!this.fogTexture || !this.renderer) return
-    this.fillBlack()
+
+    if (snapshotCanvas) {
+      this.drawSnapshotCanvas(snapshotCanvas)
+    } else {
+      this.fillBlack()
+    }
 
     // Find the last reset and only replay ops after it
     let start = 0
@@ -51,6 +59,24 @@ export class FogLayer extends Container {
     for (let i = start; i < ops.length; i++) {
       this.drawOp(ops[i])
     }
+  }
+
+  /**
+   * Extracts the current fog RenderTexture as a PNG data URL.
+   * Used by the DM to bake a snapshot for fogOps compaction.
+   */
+  async extractSnapshot(): Promise<HTMLCanvasElement | null> {
+    if (!this.fogTexture || !this.renderer) return null
+    const canvas = await this.renderer.extract.canvas({ target: this.fogTexture })
+    return canvas as HTMLCanvasElement
+  }
+
+  private drawSnapshotCanvas(canvas: HTMLCanvasElement): void {
+    if (!this.fogTexture || !this.renderer) return
+    const texture = Texture.from(canvas)
+    const sprite = new Sprite(texture)
+    this.renderer.render({ container: sprite, target: this.fogTexture, clear: true })
+    sprite.destroy({ texture: true })
   }
 
   /**

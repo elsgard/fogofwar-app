@@ -106,6 +106,7 @@ export interface MonsterReveal {
 export interface GameState {
   map: MapInfo | null
   fogOps: FogOp[]
+  fogSnapshot: string | null // base64 PNG of baked fog baseline; null = none
   tokens: Token[]
   tokenRadius: number
   tokenLabelSize: number
@@ -126,6 +127,7 @@ export interface SaveFile {
   savedAt: string // ISO timestamp
   map: MapInfo | null
   fogOps: FogOp[]
+  fogSnapshot?: string | null // optional: absent in older saves
   tokens: Token[]
   tokenRadius: number
   tokenLabelSize: number
@@ -158,4 +160,5 @@ export const IPC = {
   SAVE_PARTY: 'game:save-party',
   LOAD_PARTY: 'game:load-party',
   SET_MONSTER_REVEAL: 'game:set-monster-reveal',
+  COMPACT_FOG: 'game:compact-fog',
 } as const

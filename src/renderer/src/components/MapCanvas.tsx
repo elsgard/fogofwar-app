@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import type React from 'react'
 import type { MapInfo } from '../types'
 import { Application, Container, Graphics } from 'pixi.js'
 import { MapLayer } from '../pixi/MapLayer'
@@ -54,9 +55,12 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
 
   // Track previous fogOps length to decide incremental vs full replay
   const prevFogOpsLenRef = useRef(0)
+  // Snapshot canvas for the baked fog baseline (null = no snapshot / full black)
+  const snapshotCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const map = useGameStore((s) => s.map)
   const fogOps = useGameStore((s) => s.fogOps)
+  const fogSnapshot = useGameStore((s) => s.fogSnapshot)
   const tokens = useGameStore((s) => s.tokens)
   const activeTool = useGameStore((s) => s.activeTool)
   const brushRadius = useGameStore((s) => s.brushRadius)
@@ -69,6 +73,9 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const laserColor = useGameStore((s) => s.laserColor)
   const isPickingAttackTarget = useGameStore((s) => s.isPickingAttackTarget)
   const { commitStroke, updateToken, setSelectedTokenId } = useGameStore()
+
+  // Compaction threshold — when fogOps exceeds this after a stroke, bake a snapshot
+  const COMPACT_THRESHOLD = 500
 
   // ── PixiJS init ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -143,7 +150,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         // empty-state div). That means the map useEffect already ran while
         // mapLayerRef was null and returned early. Read current state now and
         // initialise everything that was missed.
-        const { map: currentMap, fogOps: currentFogOps, tokens: currentTokens } =
+        const { map: currentMap, fogOps: currentFogOps, tokens: currentTokens, fogSnapshot: currentFogSnapshot } =
           useGameStore.getState()
         if (currentMap) {
           // Initialise fog BEFORE awaiting the map image so that fogLayer.isReady
@@ -156,7 +163,11 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
             currentMap.height,
           )
           fogLayer.setAlpha(isPlayerView ? 1 : 0.5)
-          fogLayer.applyOps(currentFogOps)
+          // If there's a snapshot, load it before applying ops.
+          if (currentFogSnapshot) {
+            await loadSnapshotIntoRef(currentFogSnapshot, snapshotCanvasRef)
+          }
+          fogLayer.applyOps(currentFogOps, snapshotCanvasRef.current)
           prevFogOpsLenRef.current = currentFogOps.length
           tokenLayer.syncTokens(currentTokens)
 
@@ -217,10 +228,15 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       // incrementally instead of being dropped.
       fogLayer.init(app.renderer as Parameters<FogLayer['init']>[0], map.width, map.height)
       fogLayer.setAlpha(isPlayerView ? 1 : 0.5)
-      // Read fogOps from store rather than the closure value, in case SSE updates
-      // arrived between when this effect registered and when it runs.
-      const currentFogOps = useGameStore.getState().fogOps
-      fogLayer.applyOps(currentFogOps)
+      // Read fogOps/fogSnapshot from store rather than the closure value, in case SSE
+      // updates arrived between when this effect registered and when it runs.
+      const { fogOps: currentFogOps, fogSnapshot: currentFogSnapshot } = useGameStore.getState()
+      if (currentFogSnapshot) {
+        await loadSnapshotIntoRef(currentFogSnapshot, snapshotCanvasRef)
+      } else {
+        snapshotCanvasRef.current = null
+      }
+      fogLayer.applyOps(currentFogOps, snapshotCanvasRef.current)
       prevFogOpsLenRef.current = currentFogOps.length
 
       await mapLayer.setMap(resolveMapUrl(map), map.width, map.height)
@@ -231,6 +247,23 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map])
+
+  // ── React to fog snapshot changes ────────────────────────────────────────
+  // When a new snapshot arrives (from compaction or save load), decode it into
+  // a canvas and trigger a full fog replay.
+  useEffect(() => {
+    if (!fogSnapshot) {
+      snapshotCanvasRef.current = null
+      return
+    }
+    loadSnapshotIntoRef(fogSnapshot, snapshotCanvasRef).then((canvas) => {
+      const fogLayer = fogLayerRef.current
+      if (!fogLayer?.isReady || !canvas) return
+      const currentFogOps = useGameStore.getState().fogOps
+      fogLayer.applyOps(currentFogOps, canvas)
+      prevFogOpsLenRef.current = currentFogOps.length
+    })
+  }, [fogSnapshot])
 
   // ── React to fog changes (incremental where possible) ────────────────────
   useEffect(() => {
@@ -243,8 +276,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     if (newLen === prevLen) {
       // IPC echo with identical content — no-op
     } else if (newLen === 0 || newLen < prevLen) {
-      // Reset or ops were removed — full replay from scratch
-      fogLayer.applyOps(fogOps)
+      // Reset, compaction, or ops were removed — full replay from snapshot (if any)
+      fogLayer.applyOps(fogOps, snapshotCanvasRef.current)
     } else {
       // New ops appended (1 or many — handles React-batched addFogOp calls).
       // Apply only the new ops incrementally; avoids a full replay that would
@@ -567,6 +600,19 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       if (strokeBufferRef.current.length > 0) {
         commitStroke(strokeBufferRef.current)
         strokeBufferRef.current = []
+
+        // Compact fogOps when the list grows too long: bake the current fog texture
+        // into a PNG snapshot, discard all prior ops, and start fresh. This keeps
+        // replay time and IPC payload size bounded regardless of session length.
+        const currentOpsLen = useGameStore.getState().fogOps.length
+        if (currentOpsLen > COMPACT_THRESHOLD && fogLayerRef.current) {
+          fogLayerRef.current.extractSnapshot().then((canvas) => {
+            if (!canvas) return
+            const dataUrl = canvas.toDataURL('image/png')
+            snapshotCanvasRef.current = canvas
+            useGameStore.getState().compactFog(dataUrl)
+          })
+        }
       }
 
       if (isDraggingTokenRef.current) {
@@ -620,6 +666,27 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     />
   )
 })
+
+/** Loads a fog snapshot dataUrl into an HTMLCanvasElement and stores it in the ref.
+ *  Returns the canvas so callers can use it immediately (e.g. on init). */
+function loadSnapshotIntoRef(
+  dataUrl: string,
+  ref: React.MutableRefObject<HTMLCanvasElement | null>,
+): Promise<HTMLCanvasElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext('2d')!.drawImage(img, 0, 0)
+      ref.current = canvas
+      resolve(canvas)
+    }
+    img.onerror = () => resolve(null)
+    img.src = dataUrl
+  })
+}
 
 function getCursor(tool: string, isPlayerView: boolean): string {
   if (isPlayerView) return 'default'
