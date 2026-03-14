@@ -33,7 +33,7 @@ const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
   enemy: '#e53935',
 }
 
-const TOOL_CYCLE = ['fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as const
+const TOOL_CYCLE = ['select', 'fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as const
 
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
@@ -124,6 +124,7 @@ export function DMView(): React.JSX.Element {
     const handler = (e: KeyboardEvent): void => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       switch (e.key.toLowerCase()) {
+        case 'v': setActiveTool('select'); break
         case 'r': setActiveTool('fog-reveal'); break
         case 'h': setActiveTool('fog-hide'); break
         case 't': setActiveTool('token-move'); break
@@ -408,6 +409,7 @@ export function DMView(): React.JSX.Element {
               <div className="tool-grid">
                 {(
                   [
+                    { id: 'select', label: 'Smart Select', key: 'V' },
                     { id: 'fog-reveal', label: 'Reveal Fog', key: 'R' },
                     { id: 'fog-hide', label: 'Hide Fog', key: 'H' },
                     { id: 'token-move', label: 'Move Token', key: 'T' },
@@ -426,7 +428,7 @@ export function DMView(): React.JSX.Element {
                 ))}
               </div>
 
-              {(activeTool === 'fog-reveal' || activeTool === 'fog-hide') && (
+              {(activeTool === 'select' || activeTool === 'fog-reveal' || activeTool === 'fog-hide') && (
                 <label className="brush-label">
                   Brush size: {brushRadius}px
                   <input

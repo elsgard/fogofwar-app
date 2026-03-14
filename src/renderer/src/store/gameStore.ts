@@ -4,7 +4,7 @@ import type { MonsterEntry } from '../types/monster'
 
 interface GameStore extends GameState {
   // Local UI state
-  activeTool: 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser'
+  activeTool: 'select' | 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser'
   brushRadius: number
   selectedTokenId: string | null
   laserRadius: number
@@ -70,7 +70,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   monsters: null,
 
   // UI state
-  activeTool: 'fog-reveal',
+  activeTool: 'select',
   brushRadius: 60,
   tokenRadius: 20,
   tokenLabelSize: 14,

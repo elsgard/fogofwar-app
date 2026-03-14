@@ -52,6 +52,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const lastPaintPosRef = useRef<{ x: number; y: number } | null>(null)
   // All ops accumulated during a single stroke — flushed to IPC on pointerup
   const strokeBufferRef = useRef<FogOp[]>([])
+  // Which fog mode is active during a 'select'-tool stroke (ctrl/shift)
+  const contextualFogModeRef = useRef<'fog-reveal' | 'fog-hide' | null>(null)
+  // Right-click laser — active regardless of the selected tool
+  const isRightClickLasingRef = useRef(false)
 
   // Track previous fogOps length to decide incremental vs full replay
   const prevFogOpsLenRef = useRef(0)
@@ -438,12 +442,23 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
 
       cursor.clear()
 
-      if (isPlayerView || (tool !== 'fog-reveal' && tool !== 'fog-hide')) return
+      // For the select tool, derive the effective fog tool from modifier keys or
+      // an ongoing stroke (contextualFogModeRef), then fall through to draw the ring.
+      let effectiveTool = tool
+      if (tool === 'select') {
+        const active = contextualFogModeRef.current
+        if (active) effectiveTool = active
+        else if (e.ctrlKey) effectiveTool = 'fog-reveal'
+        else if (e.shiftKey) effectiveTool = 'fog-hide'
+        else return // plain select — no brush ring
+      }
+
+      if (isPlayerView || (effectiveTool !== 'fog-reveal' && effectiveTool !== 'fog-hide')) return
 
       const { x, y } = toScreenCoords(e)
       const screenRadius = radius * (world?.scale.x ?? 1)
 
-      if (tool === 'fog-reveal') {
+      if (effectiveTool === 'fog-reveal') {
         // Bright green ring: reveals fog
         cursor
           .circle(x, y, screenRadius)
@@ -511,6 +526,15 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     (e: React.PointerEvent) => {
       if (isPlayerView) return
 
+      // Right-click → laser pointer regardless of active tool
+      if (e.button === 2) {
+        isRightClickLasingRef.current = true
+        const { x, y } = toMapCoords(e)
+        laserLayerRef.current?.setPosition(x, y, laserRadius, laserColor)
+        window.api?.sendLaserPointer({ x, y, radius: laserRadius, color: laserColor })
+        return
+      }
+
       // Attack target pick mode — intercept all clicks
       if (useGameStore.getState().isPickingAttackTarget) {
         const { x, y } = toMapCoords(e)
@@ -522,6 +546,32 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       }
 
       const { x, y } = toMapCoords(e)
+
+      if (activeTool === 'select') {
+        if (e.ctrlKey) {
+          contextualFogModeRef.current = 'fog-reveal'
+          isPaintingRef.current = true
+          lastPaintPosRef.current = null
+          strokeBufferRef.current = []
+          paintAt(x, y, 'fog-reveal', brushRadius)
+        } else if (e.shiftKey) {
+          contextualFogModeRef.current = 'fog-hide'
+          isPaintingRef.current = true
+          lastPaintPosRef.current = null
+          strokeBufferRef.current = []
+          paintAt(x, y, 'fog-hide', brushRadius)
+        } else {
+          const hitId = tokenLayerRef.current?.hitTest(x, y) ?? null
+          setSelectedTokenId(hitId)
+          if (hitId) {
+            isDraggingTokenRef.current = hitId
+          } else {
+            isPanningRef.current = true
+            lastPanRef.current = { x: e.clientX, y: e.clientY }
+          }
+        }
+        return
+      }
 
       if (activeTool === 'pan') {
         isPanningRef.current = true
@@ -543,12 +593,24 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         paintAt(x, y, activeTool, brushRadius)
       }
     },
-    [isPlayerView, activeTool, brushRadius, toMapCoords, paintAt, setSelectedTokenId]
+    [isPlayerView, activeTool, brushRadius, laserRadius, laserColor, toMapCoords, paintAt, setSelectedTokenId]
   )
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (isPlayerView) return
+
+      // Right-click laser takes priority — show laser and skip other move logic
+      if (isRightClickLasingRef.current) {
+        const { x, y } = toMapCoords(e)
+        laserLayerRef.current?.setPosition(x, y, laserRadius, laserColor)
+        const now = Date.now()
+        if (now - lastLaserSendRef.current >= 16) {
+          lastLaserSendRef.current = now
+          window.api?.sendLaserPointer({ x, y, radius: laserRadius, color: laserColor })
+        }
+        return
+      }
 
       updateBrushCursor(e, activeTool, brushRadius)
 
@@ -567,9 +629,14 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         return
       }
 
-      if (isPaintingRef.current && (activeTool === 'fog-reveal' || activeTool === 'fog-hide')) {
-        const { x, y } = toMapCoords(e)
-        paintAt(x, y, activeTool, brushRadius)
+      if (isPaintingRef.current) {
+        const fogTool = activeTool === 'select'
+          ? contextualFogModeRef.current
+          : (activeTool === 'fog-reveal' || activeTool === 'fog-hide' ? activeTool : null)
+        if (fogTool) {
+          const { x, y } = toMapCoords(e)
+          paintAt(x, y, fogTool, brushRadius)
+        }
       }
 
       if (activeTool === 'laser') {
@@ -601,10 +668,19 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     (e: React.PointerEvent) => {
       if (isPlayerView) return
 
+      // Right-click release → clear laser
+      if (e.button === 2) {
+        isRightClickLasingRef.current = false
+        laserLayerRef.current?.clearPointer()
+        window.api?.sendLaserPointer(null)
+        return
+      }
+
       isPanningRef.current = false
       lastPanRef.current = null
       isPaintingRef.current = false
       lastPaintPosRef.current = null
+      contextualFogModeRef.current = null
 
       // Flush the stroke buffer — one IPC call, player updates now
       if (strokeBufferRef.current.length > 0) {
@@ -639,6 +715,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     (e: React.PointerEvent) => {
       brushCursorRef.current?.clear()
       tokenLayerRef.current?.setHoveredToken(null)
+      isRightClickLasingRef.current = false
       laserLayerRef.current?.clearPointer()
       window.api?.sendLaserPointer(null)
       onPointerUp(e)
@@ -672,6 +749,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerLeave}
+      onContextMenu={(e) => e.preventDefault()}
       onWheel={onWheel}
     />
   )
