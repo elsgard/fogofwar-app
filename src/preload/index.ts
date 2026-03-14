@@ -16,6 +16,7 @@ const api = {
   batchFogOps: (ops: FogOp[]): void => ipcRenderer.send(IPC.BATCH_FOG_OPS, ops),
 
   resetFog: (): void => ipcRenderer.send(IPC.RESET_FOG),
+  revealAllFog: (): void => ipcRenderer.send(IPC.REVEAL_ALL_FOG),
   compactFog: (snapshotDataUrl: string): void => ipcRenderer.send(IPC.COMPACT_FOG, snapshotDataUrl),
 
   addToken: (token: Token): void => ipcRenderer.send(IPC.ADD_TOKEN, token),

@@ -51,10 +51,14 @@ export class FogLayer extends Container {
       this.fillBlack()
     }
 
-    // Find the last reset and only replay ops after it
+    // Find the last reset/reveal-all and only replay ops after it
     let start = 0
     for (let i = ops.length - 1; i >= 0; i--) {
-      if (ops[i].type === 'reset') { start = i + 1; break }
+      if (ops[i].type === 'reset' || ops[i].type === 'reveal-all') { start = i + 1; break }
+    }
+    // If the baseline op is reveal-all, fill transparent before applying remaining ops
+    if (start > 0 && ops[start - 1].type === 'reveal-all') {
+      this.fillTransparent()
     }
     for (let i = start; i < ops.length; i++) {
       this.drawOp(ops[i])
@@ -86,6 +90,7 @@ export class FogLayer extends Container {
   applyOneOp(op: FogOp): void {
     if (!this.fogTexture || !this.renderer) return
     if (op.type === 'reset') { this.fillBlack(); return }
+    if (op.type === 'reveal-all') { this.fillTransparent(); return }
     this.drawOp(op)
   }
 
@@ -94,6 +99,14 @@ export class FogLayer extends Container {
     const g = new Graphics().rect(0, 0, this.fogTexture.width, this.fogTexture.height).fill(0x000000)
     this.renderer.render({ container: g, target: this.fogTexture })
     g.destroy()
+  }
+
+  private fillTransparent(): void {
+    if (!this.fogTexture || !this.renderer) return
+    // Render an empty container with clear:true to wipe the texture to fully transparent.
+    const root = new Container()
+    this.renderer.render({ container: root, target: this.fogTexture, clear: true })
+    root.destroy()
   }
 
   /**

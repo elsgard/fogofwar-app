@@ -20,6 +20,7 @@ interface GameStore extends GameState {
   addFogOp: (op: FogOp) => void
   commitStroke: (ops: FogOp[]) => void
   resetFog: () => void
+  revealAllFog: () => void
   compactFog: (snapshotDataUrl: string) => void
   addToken: (token: Omit<Token, 'id'>) => void
   updateToken: (token: Token) => void
@@ -153,6 +154,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetFog: () => {
     window.api.resetFog()
     set({ fogOps: [], fogSnapshot: null, isDirty: true })
+  },
+
+  revealAllFog: () => {
+    window.api.revealAllFog()
+    set({ fogOps: [{ type: 'reveal-all' }], fogSnapshot: null, isDirty: true })
   },
 
   compactFog: (snapshotDataUrl) => {

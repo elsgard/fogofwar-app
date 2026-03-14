@@ -8,6 +8,7 @@ export interface FogOfWarAPI {
   addFogOp: (op: FogOp) => void
   batchFogOps: (ops: FogOp[]) => void
   resetFog: () => void
+  revealAllFog: () => void
   compactFog: (snapshotDataUrl: string) => void
   addToken: (token: Token) => void
   updateToken: (token: Token) => void

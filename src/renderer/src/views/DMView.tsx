@@ -61,6 +61,7 @@ export function DMView(): React.JSX.Element {
     monsters,
     loadMap,
     resetFog,
+    revealAllFog,
     addToken,
     removeToken,
     updateToken,
@@ -468,9 +469,14 @@ export function DMView(): React.JSX.Element {
                 </>
               )}
 
-              <button className="btn btn-danger" onClick={resetFog}>
-                Reset Fog
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={revealAllFog} style={{ flex: 1 }}>
+                  Reveal All
+                </button>
+                <button className="btn btn-danger" onClick={resetFog} style={{ flex: 1 }}>
+                  Reset Fog
+                </button>
+              </div>
             </section>
 
             {/* Tokens section */}

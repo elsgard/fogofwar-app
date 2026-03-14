@@ -9,8 +9,8 @@ import type { FogOp } from '../renderer/src/types'
  *   - Otherwise the op is appended.
  */
 export function applyFogOp(ops: FogOp[], op: FogOp): FogOp[] {
-  if (op.type === 'reset') return [op]
+  if (op.type === 'reset' || op.type === 'reveal-all') return [op]
   const last = ops[ops.length - 1]
-  if (last?.type === 'reset') return [op]
+  if (last?.type === 'reset' || last?.type === 'reveal-all') return [op]
   return [...ops, op]
 }

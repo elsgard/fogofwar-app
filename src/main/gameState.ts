@@ -37,6 +37,11 @@ export function resetFog(): void {
   state.fogSnapshot = null
 }
 
+export function revealAllFog(): void {
+  state.fogOps = [{ type: 'reveal-all' }]
+  state.fogSnapshot = null
+}
+
 export function compactFog(snapshotDataUrl: string): void {
   state.fogOps = []
   state.fogSnapshot = snapshotDataUrl

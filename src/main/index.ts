@@ -321,6 +321,11 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.REVEAL_ALL_FOG, () => {
+    gs.revealAllFog()
+    broadcastState()
+  })
+
   ipcMain.on(IPC.COMPACT_FOG, (_, snapshotDataUrl: string) => {
     gs.compactFog(snapshotDataUrl)
     broadcastState()
