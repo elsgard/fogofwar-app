@@ -8,6 +8,7 @@ import { IPC } from '../renderer/src/types'
 import type { FogOp, GameState, MapInfo, SaveFile, PartyFile, PlayerViewport, Battle } from '../renderer/src/types'
 import * as gs from './gameState'
 import { isVersionCompatible } from '../shared/version'
+import { applyDebugState } from './debugState'
 
 let dmWindow: BrowserWindow | null = null
 let playerWindow: BrowserWindow | null = null
@@ -528,6 +529,10 @@ app.whenReady().then(() => {
     shell.openExternal(url)
   })
 
+  if (process.env.FOG_DEBUG_STATE === '1') {
+    applyDebugState()
+    sseMapDataUrlCache = gs.getState().map?.dataUrl ?? ''
+  }
   createDMWindow()
 
   app.on('activate', () => {
