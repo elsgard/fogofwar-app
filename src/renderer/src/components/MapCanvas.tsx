@@ -60,6 +60,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const battle = useGameStore((s) => s.battle)
   const laserRadius = useGameStore((s) => s.laserRadius)
   const laserColor = useGameStore((s) => s.laserColor)
+  const isPickingAttackTarget = useGameStore((s) => s.isPickingAttackTarget)
   const { commitStroke, updateToken, setSelectedTokenId } = useGameStore()
 
   // ── PixiJS init ──────────────────────────────────────────────────────────
@@ -450,10 +451,31 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     [] // no deps — only touches refs
   )
 
+  // ── Cancel attack target pick mode on Escape ─────────────────────────────
+  useEffect(() => {
+    if (!isPickingAttackTarget) return
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') useGameStore.getState().setIsPickingAttackTarget(false)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isPickingAttackTarget])
+
   // ── Pointer event handlers ───────────────────────────────────────────────
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (isPlayerView) return
+
+      // Attack target pick mode — intercept all clicks
+      if (useGameStore.getState().isPickingAttackTarget) {
+        const { x, y } = toMapCoords(e)
+        const hitId = tokenLayerRef.current?.hitTest(x, y) ?? null
+        if (hitId) {
+          useGameStore.getState().setAttackPickedTokenId(hitId)
+        }
+        return
+      }
+
       const { x, y } = toMapCoords(e)
 
       if (activeTool === 'pan') {
@@ -582,7 +604,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   return (
     <div
       ref={canvasRef}
-      style={{ width: '100%', height: '100%', cursor: getCursor(activeTool, isPlayerView) }}
+      style={{ width: '100%', height: '100%', cursor: isPickingAttackTarget ? 'crosshair' : getCursor(activeTool, isPlayerView) }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

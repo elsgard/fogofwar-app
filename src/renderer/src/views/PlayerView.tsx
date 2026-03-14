@@ -6,6 +6,7 @@ import { useGameStore } from '../store/gameStore'
 export function PlayerView(): React.JSX.Element {
   const map = useGameStore((s) => s.map)
   const battle = useGameStore((s) => s.battle)
+  const tokens = useGameStore((s) => s.tokens)
   const monsterReveal = useGameStore((s) => s.monsterReveal)
 
   // Always mount MapCanvas so PixiJS (WebGL context + shaders) initialises
@@ -20,7 +21,7 @@ export function PlayerView(): React.JSX.Element {
           <p>Waiting for the Dungeon Master to load a map…</p>
         </div>
       )}
-      {battle?.isActive && <InitiativeStrip battle={battle} />}
+      {battle?.isActive && <InitiativeStrip battle={battle} tokens={tokens} />}
       {monsterReveal && (
         <MonsterRevealOverlay
           name={monsterReveal.name}

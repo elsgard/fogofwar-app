@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useGameStore } from '../store/gameStore'
-import type { Battle, Combatant, Effect, BattleLogEntry, BattleLogKind, MonsterSheet } from '../types'
+import type { Battle, Combatant, Effect, BattleLogEntry, BattleLogKind, MonsterSheet, Token } from '../types'
 import { CharacterSheetModal } from '../components/CharacterSheetModal'
 import './BattlePanel.css'
 
@@ -27,6 +27,17 @@ function sortedCombatants(combatants: Combatant[]): Combatant[] {
       b.initiativeTieBreak - a.initiativeTieBreak ||
       a.sortOrder - b.sortOrder,
   )
+}
+
+/** Apply newHp to token, auto-setting status at 0 / above 0. */
+function updatedTokenWithStatus(token: Token, newHp: number): Token {
+  const clampedHp = Math.max(0, newHp)
+  if (clampedHp <= 0 && (token.hp ?? 1) > 0) {
+    return { ...token, hp: 0, status: token.type === 'player' ? 'dsa' : 'dead' }
+  } else if (clampedHp > 0 && (token.status === 'dead' || token.status === 'dsa')) {
+    return { ...token, hp: clampedHp, status: 'alive' }
+  }
+  return { ...token, hp: clampedHp }
 }
 
 const EFFECT_COLORS = ['#a855f7', '#f59e0b', '#4caf50', '#4a9eff', '#e53935', '#ec4899']
@@ -108,14 +119,28 @@ interface AttackPopoverProps {
   anchorRef: React.RefObject<HTMLButtonElement | null>
   attacker: Combatant
   targets: Combatant[]
+  tokens: Token[]
   onAttack: (targetId: string, damage: number | null) => void
   onClose: () => void
 }
 
-function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: AttackPopoverProps): React.JSX.Element {
+function AttackPopover({ anchorRef, attacker, targets, tokens, onAttack, onClose }: AttackPopoverProps): React.JSX.Element {
   const [targetId, setTargetId] = useState(targets[0]?.id ?? '')
   const [damage, setDamage] = useState('')
   const ref = useRef<HTMLDivElement>(null)
+
+  const isPicking = useGameStore((s) => s.isPickingAttackTarget)
+  const attackPickedTokenId = useGameStore((s) => s.attackPickedTokenId)
+  const setIsPicking = useGameStore((s) => s.setIsPickingAttackTarget)
+  const setAttackPickedTokenId = useGameStore((s) => s.setAttackPickedTokenId)
+  // Suppress the mousedown that immediately follows a token pick on the map.
+  // Effects run before mousedown in Electron, so we use a ref (not state) to
+  // signal the click-outside handler to skip exactly one event.
+  const suppressNextOutsideClose = useRef(false)
+
+  const attackerName = attacker.tokenId
+    ? (tokens.find((t) => t.id === attacker.tokenId)?.label ?? attacker.name)
+    : attacker.name
 
   const pos = useRef({ top: 0, left: 0 })
   if (anchorRef.current) {
@@ -123,10 +148,39 @@ function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: Atta
     pos.current = { top: rect.bottom + 4, left: rect.left }
   }
 
+  // Enter pick mode automatically when the popover opens; cancel on unmount.
+  useEffect(() => {
+    setIsPicking(true)
+    return () => { setIsPicking(false) }
+  }, [])
+
+  // When MapCanvas signals a picked token, resolve to combatant target.
+  // This effect runs before mousedown in Electron's event loop, so we set a
+  // ref to tell the click-outside handler to skip the next outside event.
+  useEffect(() => {
+    if (!attackPickedTokenId) return
+    const target = targets.find((c) => c.tokenId === attackPickedTokenId)
+    if (target) setTargetId(target.id)
+    suppressNextOutsideClose.current = true
+    setAttackPickedTokenId(null)
+    setIsPicking(false)
+  }, [attackPickedTokenId])
+
+  function handleClose(): void {
+    setIsPicking(false)
+    setAttackPickedTokenId(null)
+    onClose()
+  }
+
   useEffect(() => {
     const handler = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node) &&
-          !anchorRef.current?.contains(e.target as Node)) onClose()
+      if (suppressNextOutsideClose.current) {
+        suppressNextOutsideClose.current = false
+        return
+      }
+      const insidePopover = ref.current?.contains(e.target as Node) ?? false
+      const insideAnchor = anchorRef.current?.contains(e.target as Node) ?? false
+      if (!insidePopover && !insideAnchor) handleClose()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -136,27 +190,48 @@ function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: Atta
     const dmg = parseInt(damage, 10)
     if (!targetId || isNaN(dmg) || dmg <= 0) return
     onAttack(targetId, dmg)
-    onClose()
+    handleClose()
   }
 
   function submitMiss(): void {
     if (!targetId) return
     onAttack(targetId, null)
-    onClose()
+    handleClose()
   }
+
+  const selectedTarget = targets.find((t) => t.id === targetId)
+  const targetAc = selectedTarget
+    ? (selectedTarget.tokenId ? (tokens.find((t) => t.id === selectedTarget.tokenId)?.ac ?? selectedTarget.ac) : selectedTarget.ac)
+    : null
 
   return createPortal(
     <div className="attack-popover" ref={ref}
       style={{ position: 'fixed', top: pos.current.top, left: pos.current.left }}
     >
-      <div className="attack-popover-from">⚔ {attacker.name} attacks…</div>
-      <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
-        {targets.map((t) => (
-          <option key={t.id} value={t.id}>{t.name}</option>
-        ))}
-      </select>
+      <div className="attack-popover-from">⚔ {attackerName} attacks…</div>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <select style={{ flex: 1 }} value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+          {targets.map((t) => {
+            const displayName = t.tokenId
+              ? (tokens.find((tok) => tok.id === t.tokenId)?.label ?? t.name)
+              : t.name
+            return <option key={t.id} value={t.id}>{displayName}</option>
+          })}
+        </select>
+        <button
+          className={`btn-icon${isPicking ? ' active' : ''}`}
+          title={isPicking ? 'Click a token on the map… (Esc to cancel)' : 'Pick target by clicking map token'}
+          onClick={() => setIsPicking(!isPicking)}
+          style={{ fontSize: 14, padding: '2px 6px', opacity: isPicking ? 1 : 0.7 }}
+        >{isPicking ? '🎯…' : '🎯'}</button>
+      </div>
+      {targetAc !== null && (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+          AC {targetAc}
+        </div>
+      )}
       <input
-        autoFocus
+        autoFocus={!isPicking}
         type="number"
         placeholder="Damage"
         min={1}
@@ -181,41 +256,63 @@ function AttackPopover({ anchorRef, attacker, targets, onAttack, onClose }: Atta
 
 interface CombatantRowProps {
   combatant: Combatant
-  tokenColor: string | null
-  monsterSheet: MonsterSheet | null
+  token: Token | null
   round: number
   onUpdate: (c: Combatant, extraLog?: BattleLogEntry) => void
   onRemove: (id: string) => void
   onViewSheet: (sheet: MonsterSheet) => void
+  onHpChange: (id: string, newHp: number, isToken: boolean) => void
 }
 
-function CombatantRow({ combatant: c, tokenColor, monsterSheet, round, onUpdate, onRemove, onViewSheet }: CombatantRowProps): React.JSX.Element {
+function CombatantRow({ combatant: c, token, round, onUpdate, onRemove, onViewSheet, onHpChange }: CombatantRowProps): React.JSX.Element {
   const [editingHp, setEditingHp] = useState(false)
   const [hpInput, setHpInput] = useState('')
   const [showEffectPopover, setShowEffectPopover] = useState(false)
   const effectButtonRef = useRef<HTMLButtonElement>(null)
 
+  // When a token is linked, read live values from the token
+  const displayName = token ? token.label : c.name
+  const displayHp = token ? (token.hp ?? null) : c.hp
+  const displayHpMax = token ? (token.hpMax ?? null) : c.hpMax
+  const displayAc = token ? (token.ac ?? null) : c.ac
+  const displayColor = token ? token.color : (c.isPlayerCharacter ? '#4a9eff' : '#666')
+  const monsterSheet = token ? (token.monsterSheet ?? null) : null
+
   function commitHp(): void {
     setEditingHp(false)
     const val = parseInt(hpInput, 10)
-    if (isNaN(val) || c.hp === null) return
-    const delta = val - c.hp
+    if (isNaN(val) || displayHp === null) return
+    const clampedVal = Math.max(0, val)
+    const delta = clampedVal - (displayHp ?? 0)
     const kind: BattleLogKind = delta < 0 ? 'damage' : delta > 0 ? 'heal' : 'note'
     const text = delta < 0
-      ? `${c.name} took ${Math.abs(delta)} damage (${val}/${c.hpMax ?? '?'} HP)`
+      ? `${displayName} took ${Math.abs(delta)} damage (${clampedVal}/${displayHpMax ?? '?'} HP)`
       : delta > 0
-        ? `${c.name} healed ${delta} HP (${val}/${c.hpMax ?? '?'} HP)`
+        ? `${displayName} healed ${delta} HP (${clampedVal}/${displayHpMax ?? '?'} HP)`
         : ''
-    const updated = { ...c, hp: val }
-    if (val <= 0 && c.hp > 0) {
-      onUpdate(
-        { ...updated, hp: 0 },
-        logEntry(round, 'death', `${c.name} dropped to 0 HP`, c.id),
-      )
+
+    if (clampedVal <= 0 && (displayHp ?? 1) > 0) {
+      const deathLog = logEntry(round, 'death', `${displayName} dropped to 0 HP`, c.id)
+      if (token) {
+        onHpChange(token.id, 0, true)
+        onUpdate(c, deathLog)
+      } else {
+        onUpdate({ ...c, hp: 0 }, deathLog)
+      }
     } else if (text) {
-      onUpdate(updated, logEntry(round, kind, text, c.id, { amount: Math.abs(delta) }))
+      const entry = logEntry(round, kind, text, c.id, { amount: Math.abs(delta) })
+      if (token) {
+        onHpChange(token.id, clampedVal, true)
+        onUpdate(c, entry)
+      } else {
+        onUpdate({ ...c, hp: clampedVal }, entry)
+      }
     } else {
-      onUpdate(updated)
+      if (token) {
+        onHpChange(token.id, clampedVal, true)
+      } else {
+        onUpdate({ ...c, hp: clampedVal })
+      }
     }
   }
 
@@ -224,7 +321,7 @@ function CombatantRow({ combatant: c, tokenColor, monsterSheet, round, onUpdate,
     const durationStr = duration !== null ? ` (${duration} round${duration !== 1 ? 's' : ''})` : ''
     onUpdate(
       { ...c, effects: [...c.effects, effect] },
-      logEntry(round, 'effect-added', `${c.name} gained ${name}${durationStr}`, c.id, { effectName: name }),
+      logEntry(round, 'effect-added', `${displayName} gained ${name}${durationStr}`, c.id, { effectName: name }),
     )
   }
 
@@ -237,16 +334,16 @@ function CombatantRow({ combatant: c, tokenColor, monsterSheet, round, onUpdate,
   }
 
   return (
-    <div className={`combatant-row${c.isActive ? ' is-active' : ''}${c.hp === 0 ? ' is-dead' : ''}`}
+    <div className={`combatant-row${c.isActive ? ' is-active' : ''}${displayHp === 0 ? ' is-dead' : ''}`}
          style={{ position: 'relative' }}>
       <span className="combatant-initiative">{c.initiative}</span>
       <span
         className="combatant-token-dot"
-        style={{ background: tokenColor ?? (c.isPlayerCharacter ? '#4a9eff' : '#666') }}
+        style={{ background: displayColor }}
       />
-      <span className={`combatant-name${c.isActive ? ' is-active' : ''}`}>{c.name}</span>
+      <span className={`combatant-name${c.isActive ? ' is-active' : ''}`}>{displayName}</span>
 
-      {c.hp !== null && (
+      {displayHp !== null && (
         editingHp ? (
           <input
             className="combatant-hp-input"
@@ -260,14 +357,14 @@ function CombatantRow({ combatant: c, tokenColor, monsterSheet, round, onUpdate,
           <span
             className="combatant-hp"
             title="Click to edit HP"
-            onClick={() => { setHpInput(String(c.hp)); setEditingHp(true) }}
+            onClick={() => { setHpInput(String(displayHp)); setEditingHp(true) }}
           >
-            {c.hp}/{c.hpMax ?? '?'}
+            {displayHp}/{displayHpMax ?? '?'}
           </span>
         )
       )}
 
-      {c.ac !== null && <span className="combatant-ac">AC {c.ac}</span>}
+      {displayAc !== null && <span className="combatant-ac">AC {displayAc}</span>}
 
       <div className="combatant-effects">
         {c.effects.map((ef) => (
@@ -317,6 +414,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   const battle = useGameStore((s) => s.battle)
   const tokens = useGameStore((s) => s.tokens)
   const setBattle = useGameStore((s) => s.setBattle)
+  const updateToken = useGameStore((s) => s.updateToken)
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [newName, setNewName] = useState('')
@@ -336,6 +434,12 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [battle?.log.length])
+
+  // Clear pick mode when BattlePanel unmounts
+  useEffect(() => {
+    return () => { useGameStore.getState().setIsPickingAttackTarget(false) }
+  }, [])
+
 
   // ── Battle creation ──────────────────────────────────────────────────────
 
@@ -367,6 +471,18 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
     setBattle({ ...battle, combatants, log })
   }
 
+  /** Route HP change: token-linked → updateToken, phantom → updateCombatant */
+  function handleHpChange(id: string, newHp: number, isToken: boolean): void {
+    if (!battle) return
+    if (isToken) {
+      const token = tokens.find((t) => t.id === id)
+      if (token) updateToken(updatedTokenWithStatus(token, newHp))
+    } else {
+      const combatant = battle.combatants.find((c) => c.id === id)
+      if (combatant) updateCombatant({ ...combatant, hp: Math.max(0, newHp) })
+    }
+  }
+
   function removeCombatant(id: string): void {
     if (!battle) return
     // If the removed combatant was active, transfer active to the next one
@@ -383,22 +499,26 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   }
 
   function addCombatant(): void {
-    if (!battle || !newName.trim()) return
+    if (!battle) return
     const initiative = parseInt(newInit, 10)
     if (isNaN(initiative)) return
 
     const linkedToken = newTokenId !== 'none' ? tokens.find((t) => t.id === newTokenId) : undefined
+
+    // Token-linked: require token; phantom: require name
+    if (!linkedToken && !newName.trim()) return
+
     const combatant: Combatant = {
       id: newId(),
-      name: newName.trim(),
+      name: linkedToken ? linkedToken.label : newName.trim(),
       initiative,
       initiativeTieBreak: 0,
       sortOrder: battle.combatants.length,
       tokenId: linkedToken?.id ?? null,
-      hp: newHp.trim() ? parseInt(newHp, 10) : null,
-      hpMax: newHpMax.trim() ? parseInt(newHpMax, 10) : null,
-      ac: newAc.trim() ? parseInt(newAc, 10) : null,
-      isPlayerCharacter: newIsPlayer,
+      hp: linkedToken ? (linkedToken.hp ?? null) : (newHp.trim() ? parseInt(newHp, 10) : null),
+      hpMax: linkedToken ? (linkedToken.hpMax ?? null) : (newHpMax.trim() ? parseInt(newHpMax, 10) : null),
+      ac: linkedToken ? (linkedToken.ac ?? null) : (newAc.trim() ? parseInt(newAc, 10) : null),
+      isPlayerCharacter: linkedToken ? linkedToken.type === 'player' : newIsPlayer,
       isVisible: true,
       isActive: false,
       effects: [],
@@ -433,7 +553,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
         } else if (ef.duration - 1 > 0) {
           newEffects.push({ ...ef, duration: ef.duration - 1 })
         } else {
-          newLog.push(logEntry(battle.round, 'effect-expired', `${c.name}: ${ef.name} expired`, c.id))
+          newLog.push(logEntry(battle.round, 'effect-expired', `${c.name} expired`, c.id))
         }
       }
       return { ...c, isActive: false, effects: newEffects }
@@ -443,7 +563,11 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
     if (isNewRound) {
       newLog.push(logEntry(newRound, 'round-start', `Round ${newRound} started`))
     }
-    newLog.push(logEntry(newRound, 'turn-start', `${sorted[nextIdx].name}'s turn`, sorted[nextIdx].id))
+    const nextCombatant = sorted[nextIdx]
+    const nextDisplayName = nextCombatant.tokenId
+      ? (tokens.find((t) => t.id === nextCombatant.tokenId)?.label ?? nextCombatant.name)
+      : nextCombatant.name
+    newLog.push(logEntry(newRound, 'turn-start', `${nextDisplayName}'s turn`, nextCombatant.id))
 
     setBattle({ ...battle, combatants: updatedCombatants, round: newRound, log: newLog })
   }
@@ -461,28 +585,48 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
     const target = battle.combatants.find((c) => c.id === targetId)
     if (!attacker || !target) return
 
+    const attackerName = attacker.tokenId
+      ? (tokens.find((t) => t.id === attacker.tokenId)?.label ?? attacker.name)
+      : attacker.name
+    const targetName = target.tokenId
+      ? (tokens.find((t) => t.id === target.tokenId)?.label ?? target.name)
+      : target.name
+
     if (damage === null) {
-      const missLog = logEntry(battle.round, 'miss', `${attacker.name} attacked ${target.name} — miss!`, target.id)
+      const missLog = logEntry(battle.round, 'miss', `${attackerName} attacked ${targetName} — miss!`, target.id)
       setBattle({ ...battle, log: [...battle.log, missLog] })
       return
     }
 
-    const newHp = target.hp !== null ? Math.max(0, target.hp - damage) : null
-    const hpStr = newHp !== null ? ` (${newHp}/${target.hpMax ?? '?'} HP)` : ''
+    // Resolve current HP from token if linked
+    const targetToken = target.tokenId ? tokens.find((t) => t.id === target.tokenId) : null
+    const currentHp = targetToken ? (targetToken.hp ?? null) : target.hp
+    const currentHpMax = targetToken ? (targetToken.hpMax ?? null) : target.hpMax
+
+    const newHpValue = currentHp !== null ? Math.max(0, currentHp - damage) : null
+    const hpStr = newHpValue !== null ? ` (${newHpValue}/${currentHpMax ?? '?'} HP)` : ''
     const attackLog = logEntry(
       battle.round, 'damage',
-      `${attacker.name} attacked ${target.name} for ${damage} damage${hpStr}`,
+      `${attackerName} attacked ${targetName} for ${damage} damage${hpStr}`,
       target.id, { amount: damage },
     )
 
     let log = [...battle.log, attackLog]
-    if (newHp !== null && newHp <= 0 && (target.hp ?? 1) > 0) {
-      log.push(logEntry(battle.round, 'death', `${target.name} dropped to 0 HP`, target.id))
+    if (newHpValue !== null && newHpValue <= 0 && (currentHp ?? 1) > 0) {
+      log.push(logEntry(battle.round, 'death', `${targetName} dropped to 0 HP`, target.id))
     }
-    const combatants = battle.combatants.map((c) =>
-      c.id === targetId ? { ...c, hp: newHp } : c
-    )
-    setBattle({ ...battle, combatants, log })
+
+    if (targetToken && newHpValue !== null) {
+      // Token-linked: update token HP (with auto-status), leave combatant.hp stale
+      updateToken(updatedTokenWithStatus(targetToken, newHpValue))
+      setBattle({ ...battle, log })
+    } else {
+      // Phantom: update combatant HP directly
+      const combatants = battle.combatants.map((c) =>
+        c.id === targetId ? { ...c, hp: newHpValue } : c
+      )
+      setBattle({ ...battle, combatants, log })
+    }
   }
 
   function updateTurnDuration(val: number): void {
@@ -516,6 +660,8 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   const minutes = Math.floor(elapsed / 60)
   const seconds = elapsed % 60
   const timeStr = minutes > 0 ? `${minutes}m ${seconds}s elapsed` : elapsed > 0 ? `${seconds}s elapsed` : ''
+
+  const selectedToken = newTokenId !== 'none' ? tokens.find((t) => t.id === newTokenId) : null
 
   return (
     <div className="battle-panel">
@@ -556,17 +702,17 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
       {/* Combatant list */}
       <div className="battle-combatants">
         {sorted.map((c) => {
-          const linkedToken = c.tokenId ? tokens.find((t) => t.id === c.tokenId) : undefined
+          const linkedToken = c.tokenId ? tokens.find((t) => t.id === c.tokenId) ?? null : null
           return (
             <CombatantRow
               key={c.id}
               combatant={c}
-              tokenColor={linkedToken?.color ?? null}
-              monsterSheet={linkedToken?.monsterSheet ?? null}
+              token={linkedToken}
               round={battle.round}
               onUpdate={updateCombatant}
               onRemove={removeCombatant}
               onViewSheet={setShowSheet}
+              onHpChange={handleHpChange}
             />
           )
         })}
@@ -578,26 +724,6 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
 
         {showAddForm && (
           <div className="add-combatant-form">
-            <div className="add-combatant-row">
-              <input
-                type="text"
-                placeholder="Name…"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addCombatant()}
-              />
-              <input
-                type="number"
-                placeholder="Init"
-                value={newInit}
-                onChange={(e) => setNewInit(e.target.value)}
-              />
-            </div>
-            <div className="add-combatant-row">
-              <input type="number" placeholder="HP" value={newHp} onChange={(e) => setNewHp(e.target.value)} />
-              <input type="number" placeholder="Max HP" value={newHpMax} onChange={(e) => setNewHpMax(e.target.value)} />
-              <input type="number" placeholder="AC" value={newAc} onChange={(e) => setNewAc(e.target.value)} />
-            </div>
             <select
               value={newTokenId}
               onChange={(e) => {
@@ -612,6 +738,8 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
                     setNewAc(t.ac != null ? String(t.ac) : '')
                     setNewIsPlayer(t.type === 'player')
                   }
+                } else {
+                  setNewName(''); setNewHp(''); setNewHpMax(''); setNewAc(''); setNewIsPlayer(false)
                 }
               }}
             >
@@ -622,13 +750,63 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
                   <option key={t.id} value={t.id}>{t.label} ({t.type})</option>
                 ))}
             </select>
-            <label>
-              <input type="checkbox" checked={newIsPlayer} onChange={(e) => setNewIsPlayer(e.target.checked)} />
-              {' '}Player character
-            </label>
-            <button className="btn btn-primary" onClick={addCombatant} disabled={!newName.trim() || !newInit.trim()}>
-              Add
-            </button>
+
+            {selectedToken ? (
+              /* Token selected — show readonly summary + initiative only */
+              <div className="add-combatant-token-summary">
+                <span
+                  className="combatant-token-dot"
+                  style={{ background: selectedToken.color, display: 'inline-block', marginRight: 6 }}
+                />
+                <strong>{selectedToken.label}</strong>
+                {selectedToken.hp != null && (
+                  <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>
+                    {selectedToken.hp}/{selectedToken.hpMax ?? '?'} HP
+                    {selectedToken.ac != null ? `  ·  AC ${selectedToken.ac}` : ''}
+                  </span>
+                )}
+              </div>
+            ) : (
+              /* Phantom — show manual fields */
+              <>
+                <div className="add-combatant-row">
+                  <input
+                    type="text"
+                    placeholder="Name…"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addCombatant()}
+                  />
+                </div>
+                <div className="add-combatant-row">
+                  <input type="number" placeholder="HP" value={newHp} onChange={(e) => setNewHp(e.target.value)} />
+                  <input type="number" placeholder="Max HP" value={newHpMax} onChange={(e) => setNewHpMax(e.target.value)} />
+                  <input type="number" placeholder="AC" value={newAc} onChange={(e) => setNewAc(e.target.value)} />
+                </div>
+                <label>
+                  <input type="checkbox" checked={newIsPlayer} onChange={(e) => setNewIsPlayer(e.target.checked)} />
+                  {' '}Player character
+                </label>
+              </>
+            )}
+
+            <div className="add-combatant-row">
+              <input
+                type="number"
+                placeholder="Initiative"
+                value={newInit}
+                onChange={(e) => setNewInit(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addCombatant()}
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={addCombatant}
+                disabled={(!selectedToken && !newName.trim()) || !newInit.trim()}
+              >
+                Add
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -644,7 +822,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
               ref={attackButtonRef}
               className="btn btn-secondary"
               style={{ fontSize: 12 }}
-              onClick={() => setShowAttackPopover((v) => !v)}
+              onClick={() => setShowAttackPopover(true)}
             >
               ⚔ Attack
             </button>
@@ -656,6 +834,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
           anchorRef={attackButtonRef}
           attacker={sorted[activeIdx]}
           targets={sorted.filter((c) => c.id !== sorted[activeIdx].id)}
+          tokens={tokens}
           onAttack={handleAttack}
           onClose={() => setShowAttackPopover(false)}
         />

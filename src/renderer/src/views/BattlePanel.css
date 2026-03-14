@@ -256,6 +256,14 @@
   gap: 4px;
 }
 
+.add-combatant-token-summary {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 4px 0;
+  color: var(--text);
+}
+
 /* ── Quick action bar ── */
 
 .battle-quick-bar {

@@ -9,6 +9,8 @@ interface GameStore extends GameState {
   selectedTokenId: string | null
   laserRadius: number
   laserColor: string
+  isPickingAttackTarget: boolean
+  attackPickedTokenId: string | null
 
   // Setters driven by IPC state updates
   applyState: (state: GameState) => void
@@ -27,6 +29,8 @@ interface GameStore extends GameState {
   setMonsters: (monsters: MonsterEntry[] | null) => void
 
   // Local-only UI actions
+  setIsPickingAttackTarget: (picking: boolean) => void
+  setAttackPickedTokenId: (id: string | null) => void
   setActiveTool: (tool: GameStore['activeTool']) => void
   setBrushRadius: (r: number) => void
   setTokenRadius: (r: number) => void
@@ -70,6 +74,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedTokenId: null,
   laserRadius: 8,
   laserColor: '#ff2222',
+  isPickingAttackTarget: false,
+  attackPickedTokenId: null,
   isDirty: false,
 
   applyState: (state) => set((s) => ({
@@ -162,6 +168,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setMonsters: (monsters) => set({ monsters }),
+  setIsPickingAttackTarget: (picking) => set({ isPickingAttackTarget: picking }),
+  setAttackPickedTokenId: (id) => set({ attackPickedTokenId: id }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setBrushRadius: (brushRadius) => set({ brushRadius }),
   setTokenRadius: (tokenRadius) => {
