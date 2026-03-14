@@ -524,9 +524,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
       effects: [],
     }
 
-    const isFirst = battle.combatants.length === 0
-    const updatedCombatant = isFirst ? { ...combatant, isActive: true } : combatant
-    setBattle({ ...battle, combatants: [...battle.combatants, updatedCombatant] })
+    setBattle({ ...battle, combatants: [...battle.combatants, combatant] })
 
     setNewName(''); setNewInit(''); setNewHp(''); setNewHpMax(''); setNewAc('')
     setNewTokenId('none'); setNewIsPlayer(false)
@@ -570,6 +568,19 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
     newLog.push(logEntry(newRound, 'turn-start', `${nextDisplayName}'s turn`, nextCombatant.id))
 
     setBattle({ ...battle, combatants: updatedCombatants, round: newRound, log: newLog })
+  }
+
+  function startTurns(): void {
+    if (!battle) return
+    const sorted = sortedCombatants(battle.combatants)
+    if (sorted.length === 0) return
+    const first = sorted[0]
+    const firstName = first.tokenId
+      ? (tokens.find((t) => t.id === first.tokenId)?.label ?? first.name)
+      : first.name
+    const combatants = battle.combatants.map((c) => ({ ...c, isActive: c.id === first.id }))
+    const log = [...battle.log, logEntry(battle.round, 'turn-start', `${firstName}'s turn`, first.id)]
+    setBattle({ ...battle, combatants, log })
   }
 
   function addNote(): void {
@@ -814,22 +825,30 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
       {/* Quick action bar */}
       {battle.isActive && battle.combatants.length > 0 && (
         <div className="battle-quick-bar">
-          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={nextTurn}>
-            Next Turn →
-          </button>
-          {sorted[activeIdx] && sorted.length > 1 && (
-            <button
-              ref={attackButtonRef}
-              className="btn btn-secondary"
-              style={{ fontSize: 12 }}
-              onClick={() => setShowAttackPopover(true)}
-            >
-              ⚔ Attack
+          {activeIdx === -1 ? (
+            <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={startTurns}>
+              Start →
             </button>
+          ) : (
+            <>
+              <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={nextTurn}>
+                Next Turn →
+              </button>
+              {sorted.length > 1 && (
+                <button
+                  ref={attackButtonRef}
+                  className="btn btn-secondary"
+                  style={{ fontSize: 12 }}
+                  onClick={() => setShowAttackPopover(true)}
+                >
+                  ⚔ Attack
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
-      {showAttackPopover && sorted[activeIdx] && (
+      {showAttackPopover && activeIdx !== -1 && (
         <AttackPopover
           anchorRef={attackButtonRef}
           attacker={sorted[activeIdx]}
