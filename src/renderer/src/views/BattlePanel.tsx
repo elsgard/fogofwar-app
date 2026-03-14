@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useGameStore } from '../store/gameStore'
 import type { Battle, Combatant, Effect, BattleLogEntry, BattleLogKind, MonsterSheet, Token } from '../types'
+import { sortedCombatants, updatedTokenWithStatus } from '../../../shared/battle'
 import { CharacterSheetModal } from '../components/CharacterSheetModal'
 import './BattlePanel.css'
 
@@ -20,25 +21,7 @@ function logEntry(
   return { id: newId(), round, timestamp: nowIso(), kind, text, combatantId, meta }
 }
 
-function sortedCombatants(combatants: Combatant[]): Combatant[] {
-  return [...combatants].sort(
-    (a, b) =>
-      b.initiative - a.initiative ||
-      b.initiativeTieBreak - a.initiativeTieBreak ||
-      a.sortOrder - b.sortOrder,
-  )
-}
 
-/** Apply newHp to token, auto-setting status at 0 / above 0. */
-function updatedTokenWithStatus(token: Token, newHp: number): Token {
-  const clampedHp = Math.max(0, newHp)
-  if (clampedHp <= 0 && (token.hp ?? 1) > 0) {
-    return { ...token, hp: 0, status: token.type === 'player' ? 'dsa' : 'dead' }
-  } else if (clampedHp > 0 && (token.status === 'dead' || token.status === 'dsa')) {
-    return { ...token, hp: clampedHp, status: 'alive' }
-  }
-  return { ...token, hp: clampedHp }
-}
 
 const EFFECT_COLORS = ['#a855f7', '#f59e0b', '#4caf50', '#4a9eff', '#e53935', '#ec4899']
 

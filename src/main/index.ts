@@ -7,6 +7,7 @@ import icon from '../../resources/icon.png?asset'
 import { IPC } from '../renderer/src/types'
 import type { FogOp, GameState, SaveFile, PartyFile, PlayerViewport, Battle } from '../renderer/src/types'
 import * as gs from './gameState'
+import { isVersionCompatible } from '../shared/version'
 
 let dmWindow: BrowserWindow | null = null
 let playerWindow: BrowserWindow | null = null
@@ -358,10 +359,7 @@ app.whenReady().then(() => {
         return { success: false, error: 'Could not read file.' }
       }
 
-      const minorVersion = (v: string): string => v.split('.').slice(0, 2).join('.')
-      const appMinor = minorVersion(app.getVersion())
-      const saveMinor = minorVersion(save.version ?? '')
-      if (saveMinor !== appMinor) {
+      if (!isVersionCompatible(save.version ?? '', app.getVersion())) {
         const { response } = await dialog.showMessageBox({
           type: 'warning',
           title: 'Version mismatch',
@@ -430,10 +428,7 @@ app.whenReady().then(() => {
       return { success: false, error: 'Could not read file.' }
     }
 
-    const minorVersion = (v: string): string => v.split('.').slice(0, 2).join('.')
-    const appMinor = minorVersion(app.getVersion())
-    const fileMinor = minorVersion(party.version ?? '')
-    if (fileMinor !== appMinor) {
+    if (!isVersionCompatible(party.version ?? '', app.getVersion())) {
       const { response } = await dialog.showMessageBox({
         type: 'warning',
         title: 'Version mismatch',

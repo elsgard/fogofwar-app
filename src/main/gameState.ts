@@ -1,4 +1,5 @@
 import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle, MonsterReveal } from '../renderer/src/types'
+import { applyFogOp } from '../shared/fogOps'
 
 const state: GameState = {
   map: null,
@@ -27,17 +28,7 @@ export function addFogOps(ops: FogOp[]): void {
 }
 
 export function addFogOp(op: FogOp): void {
-  if (op.type === 'reset') {
-    state.fogOps = [op]
-  } else {
-    // If the last op was a reset, replace it to keep the list lean
-    const last = state.fogOps[state.fogOps.length - 1]
-    if (last?.type === 'reset') {
-      state.fogOps = [op]
-    } else {
-      state.fogOps.push(op)
-    }
-  }
+  state.fogOps = applyFogOp(state.fogOps, op)
 }
 
 export function resetFog(): void {
