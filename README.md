@@ -9,19 +9,20 @@ Built with Electron, React, TypeScript, and PixiJS v8 for WebGL rendering.
 ## Features
 
 - **Load any map image** (PNG, JPEG, etc.) via native file dialog
-- **Fog of war** painted over the map — reveal or re-hide areas with a brush (feathered edges)
+- **Fog of war** painted over the map — reveal or re-hide areas with a brush (feathered edges); automatic fog compaction keeps performance bounded over long sessions
 - **Brush preview cursor** — green ring for reveal, red ring for hide
 - **Tokens** — place players, NPCs, and enemies on the map; toggle visibility and status (alive / DSA / dead) per token
-- **Token settings** — global size, label size, and label visibility sliders synced to all views
+- **Token settings** — global size, label size, and label visibility sliders synced to all views; per-type label visibility (hide player / NPC / enemy labels independently)
 - **Selected token highlight** — green outline on the active token in DM view
-- **Laser pointer** — DM points to areas on the map with a glowing dot and fading trail; configurable color and size; synced to all player views in real time
-- **Pan & zoom** — scroll wheel to zoom, pan tool to navigate large maps
+- **Smart Select tool** — default tool that adapts to context: drag a token to move it, drag empty map to pan, Ctrl+drag to reveal fog, Shift+drag to hide fog
+- **Laser pointer** — right-click and drag anywhere (regardless of active tool) to show a glowing dot with a fading trail to players; configurable color and size via the Laser tool; synced to all player views in real time
+- **Pan & zoom** — scroll wheel to zoom, Pan tool or Smart Select to navigate large maps
 - **Player viewport push** — DM can lock the player view to their current pan/zoom, or reset it to auto-fit
 - **Player window** — separate read-only Electron window showing only revealed areas
 - **Browser player** — open `localhost:7654?role=player` in any browser; updates via SSE
 - **Save / Load** — scene saved to `.fowsave` (JSON + base64 image, versioned)
 - **Menu bar** — Session / Map / Player drop-down menus; hover to switch, click background to close
-- **Keyboard shortcuts** — `R` reveal, `H` hide, `T` move token, `P` pan, `L` laser; `Tab` cycles tools
+- **Keyboard shortcuts** — `V` smart select, `R` reveal, `H` hide, `T` move token, `P` pan, `L` laser; `Tab` cycles tools
 - **Monster database** — load a local D&D 5e monster JSON file; search by name to auto-fill token stats; view full character sheet (stat block + abilities + traits/actions) from the token editor or battle tracker
 - **Monster reveal** — DM sends a monster portrait to the player view from the character sheet; slides in from the right with the creature name; DM can dismiss it at any time
 - **Battle tracker** — initiative order with automatic tie-breaking; per-combatant HP / AC tracking; turn cycling with round counter; effects / conditions with round-duration countdowns; attack actions with roll logging; full battle log; links combatants to map tokens; party export / import (`.fowparty`)
@@ -33,6 +34,7 @@ Built with Electron, React, TypeScript, and PixiJS v8 for WebGL rendering.
 ```bash
 npm install
 npm run dev        # start dev server + Electron
+npm run dev:debug  # start with a pre-populated debug state (checkerboard map + tokens)
 npm run build      # typecheck + build
 npm run typecheck  # type-check only
 npm run lint

@@ -16,6 +16,7 @@
 12. [Monster Database](#12-monster-database)
 13. [File Formats](#13-file-formats)
 14. [Tool System](#14-tool-system)
+15. [Debug Mode](#15-debug-mode)
 
 ---
 
@@ -86,7 +87,8 @@ The **preload script** (`src/preload/index.ts`) bridges the two contexts: it use
 src/
 ├── main/
 │   ├── index.ts          Entry point — Electron app, windows, IPC handlers, SSE server
-│   └── gameState.ts      In-memory game state with mutation functions
+│   ├── gameState.ts      In-memory game state with mutation functions
+│   └── debugState.ts     Debug state generator (FOG_DEBUG_STATE=1)
 │
 ├── preload/
 │   ├── index.ts          contextBridge — exposes window.api to renderers
@@ -128,15 +130,17 @@ The main process holds the single source of truth for the game state. This is in
 
 ```typescript
 interface GameState {
-  map: MapInfo | null           // loaded map image + dimensions
-  fogOps: FogOp[]               // ordered list of fog painting operations
-  tokens: Token[]               // all tokens on the map
-  tokenRadius: number           // global token display size
-  tokenLabelSize: number        // global label font size
-  tokenLabelVisible: boolean    // global label visibility
-  playerViewport: PlayerViewport | null  // pushed camera position
-  battle: Battle | null         // active battle tracker state
-  monsterReveal: MonsterReveal | null    // portrait shown on player view
+  map: MapInfo | null                        // loaded map image + dimensions
+  fogOps: FogOp[]                            // ordered list of fog painting operations
+  fogSnapshot: string | null                 // baked fog PNG (base64) after compaction
+  tokens: Token[]                            // all tokens on the map
+  tokenRadius: number                        // global token display size
+  tokenLabelSize: number                     // global label font size
+  tokenLabelVisible: boolean                 // global label visibility toggle
+  tokenLabelHiddenTypes: Record<TokenType, boolean>  // per-type label hide flags
+  playerViewport: PlayerViewport | null      // pushed camera position
+  battle: Battle | null                      // active battle tracker state
+  monsterReveal: MonsterReveal | null        // portrait shown on player view
 }
 ```
 
@@ -214,7 +218,7 @@ The renderer uses Zustand for all state. The store has two categories:
 **Synchronized state** — a mirror of the main process `GameState`. Updated only through `applyState()`, which is called whenever a state broadcast arrives via IPC or SSE.
 
 **Local UI state** — never broadcast, DM window only:
-- `activeTool` — current drawing tool
+- `activeTool` — current drawing tool (`'select' | 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser'`)
 - `brushRadius` — fog brush size
 - `selectedTokenId` — which token is selected in the editor
 - `laserRadius`, `laserColor` — laser pointer appearance
@@ -226,11 +230,12 @@ The renderer uses Zustand for all state. The store has two categories:
 SSE fog-op broadcasts strip the map `dataUrl` (to keep payloads small) and strip the battle log (on high-frequency events). `applyState` handles these cases:
 
 ```
-incoming map.dataUrl == ""  → keep existing map object (dataUrl unchanged)
-incoming battle.log == []   → keep existing log if same battle ID
+incoming map.dataUrl == ""      → keep existing map object (dataUrl unchanged)
+incoming fogSnapshot == ""      → keep cached snapshot (unchanged)
+incoming battle.log == []       → keep existing log if same battle ID
 ```
 
-This prevents the map image from being re-decoded on every fog stroke.
+This prevents the map image and fog snapshot from being re-decoded on every fog stroke.
 
 ### Fog Op Incremental Apply
 
@@ -238,9 +243,15 @@ This prevents the map image from being re-decoded on every fog stroke.
 
 ```
 newLen > prevLen  →  apply only ops [prevLen..newLen]
-newLen < prevLen  →  full replay from scratch
+newLen < prevLen  →  full replay from scratch (uses snapshot as base if present)
 newLen == prevLen →  no-op (IPC echo)
 ```
+
+### Fog Op Compaction
+
+After every completed stroke, `MapCanvas` checks if `fogOps.length > 500`. When the threshold is exceeded, it calls `fogLayer.extractSnapshot()` which uses the PixiJS renderer to bake the current fog `RenderTexture` into a PNG canvas. The PNG's data URL is stored as `fogSnapshot` in `GameState` and the `fogOps` list is discarded. Future replays use the snapshot as the base layer instead of starting from solid black.
+
+The SSE server tracks the last-sent snapshot to avoid re-transmitting the multi-MB PNG on every subsequent fog-op event. It sends `fogSnapshot: ""` in lite updates to signal "use your cached copy".
 
 ---
 
@@ -264,7 +275,10 @@ IPC channel names are defined as constants in `src/renderer/src/types/index.ts` 
 | `game:remove-token` | send | Delete a token |
 | `game:set-token-radius` | send | Change global token size |
 | `game:set-token-label-size` | send | Change label font size |
-| `game:set-token-label-visible` | send | Show/hide all labels |
+| `game:set-token-label-visible` | send | Show/hide all labels globally |
+| `game:set-token-label-hidden-types` | send | Per-type label visibility (player/npc/enemy) |
+| `game:reveal-all-fog` | send | Make entire map visible |
+| `game:compact-fog` | send | Replace fog ops with baked snapshot |
 | `game:set-player-viewport` | send | Push DM's camera to player |
 | `game:save-scene` | invoke | Save dialog + write `.fowsave` |
 | `game:load-scene` | invoke | Open dialog + load `.fowsave` |
@@ -515,15 +529,18 @@ interface PartyFile {
 
 ### Fog Ops
 
-Fog operations are stored as a flat array and replayed in order. The `reset` op clears all previous ops — when loading state, only ops after the last `reset` are replayed. This is a minor optimization; a full compaction strategy is planned.
+Fog operations are stored as a flat array and replayed in order. The `reset` and `reveal-all` ops collapse all previous ops when accumulating — only ops after the last baseline op are replayed.
 
 ```typescript
 type FogOp =
   | { type: 'reveal-circle'; x: number; y: number; radius: number }
   | { type: 'hide-circle';   x: number; y: number; radius: number }
   | { type: 'reveal-polygon'; points: number[] }  // flat [x0,y0, x1,y1, ...]
-  | { type: 'reset' }
+  | { type: 'reset' }       // fill fog solid black
+  | { type: 'reveal-all' }  // clear fog entirely (fully transparent)
 ```
+
+When a `fogSnapshot` is present in `GameState`, it serves as the base layer in place of the initial solid-black fill. New fog ops are applied on top.
 
 All coordinates are in **map space** (pixels at the map image's native resolution), not screen space. This makes ops resolution-independent and correct regardless of zoom level.
 
@@ -531,10 +548,11 @@ All coordinates are in **map space** (pixels at the map image's native resolutio
 
 ## 14. Tool System
 
-The DM has five tools, cycled with **Tab** or selected directly:
+The DM has six tools, cycled with **Tab** or selected directly:
 
 | Key | Tool | Behaviour |
 |---|---|---|
+| V | `select` | **Default.** Context-sensitive — see below |
 | R | `fog-reveal` | Paint transparent holes in fog |
 | H | `fog-hide` | Paint fog back |
 | T | `token-move` | Click to select, drag to move tokens |
@@ -542,6 +560,23 @@ The DM has five tools, cycled with **Tab** or selected directly:
 | L | `laser` | Show a laser pointer dot to players |
 
 Tool shortcuts are suppressed when focus is in a text input (`<input>`, `<textarea>`, `<select>`).
+
+### Smart Select (`select`)
+
+The default tool resolves its action based on what the user interacts with and which modifier keys are held:
+
+| Gesture | Action |
+|---|---|
+| Drag a token | Move the token |
+| Drag empty map | Pan the map |
+| Ctrl + drag | Reveal fog (brush ring shown) |
+| Shift + drag | Hide fog (brush ring shown) |
+
+### Right-Click Laser Pointer
+
+Right-clicking and dragging activates the laser pointer **regardless of the currently active tool**. The system cursor's context menu is suppressed with `onContextMenu preventDefault`. The laser clears automatically on mouse-up or when the pointer leaves the canvas.
+
+The laser radius and color are configured in the Laser tool's sidebar options and apply to both the dedicated tool and right-click activation.
 
 ### Fog Painting — Stroke Interpolation
 
@@ -559,3 +594,32 @@ All interpolated and actual ops are accumulated in `strokeBufferRef` and applied
 ### Brush Cursor
 
 The system cursor is hidden (`cursor: none`) during fog painting. A custom `Graphics` object drawn in screen space shows a ring at the cursor position — green for reveal, red for hide (with a crosshair). The ring scales with zoom so it always represents the true brush size on the map.
+
+In Smart Select mode, the brush ring only appears when a modifier key is held (Ctrl = green, Shift = red), or while a fog stroke is actively in progress.
+
+---
+
+## 15. Debug Mode
+
+Running `npm run dev:debug` sets `FOG_DEBUG_STATE=1` and launches the app with a pre-populated game state, bypassing the need for a save file or real map image.
+
+`src/main/debugState.ts` exports a single `applyDebugState()` function called from `index.ts` before `createDMWindow()`. It populates the authoritative `gameState` directly (same mutation functions used by IPC handlers) and primes `sseMapDataUrlCache` so browser players receive the map immediately on connect.
+
+**Generated state:**
+
+- **Map** — 1920×1080 SVG checkerboard (60 px cells, grey/white) embedded as a `data:image/svg+xml` URL
+- **Fog** — fully revealed (`reveal-all` op)
+- **Tokens:**
+
+| Name | Type | Position | HP | AC |
+|---|---|---|---|---|
+| Aldric | Player | col 5, row 3 | 52/52 | 18 |
+| Seraphina | Player | col 5, row 9 | 31/31 | 15 |
+| Torvin | Player | col 5, row 14 | 44/44 | 16 |
+| Goblin Warchief | Enemy | col 27, row 3 | 21/21 | 17 |
+| Orc Berserker | Enemy | col 27, row 9 | 52/52 | 13 |
+| Skeleton Archer | Enemy | col 27, row 14 | 13/13 | 13 |
+| Mira | NPC | col 14, row 7 | 8/8 | 10 |
+| Aldous | NPC | col 17, row 11 | 6/6 | 10 |
+
+Grid cell size is 60 px, so token positions are `col × 60 + 30`, `row × 60 + 30` in map space.
