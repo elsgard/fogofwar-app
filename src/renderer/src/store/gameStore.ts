@@ -38,6 +38,7 @@ interface GameStore extends GameState {
   setTokenRadius: (r: number) => void
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void
+  setTokenLabelHiddenTypes: (types: Record<Token['type'], boolean>) => void
   setSelectedTokenId: (id: string | null) => void
   setLaserRadius: (r: number) => void
   setLaserColor: (color: string) => void
@@ -74,6 +75,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   tokenRadius: 20,
   tokenLabelSize: 14,
   tokenLabelVisible: true,
+  tokenLabelHiddenTypes: { player: false, npc: false, enemy: false },
   selectedTokenId: null,
   laserRadius: 8,
   laserColor: '#ff2222',
@@ -102,6 +104,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       tokenRadius: state.tokenRadius,
       tokenLabelSize: state.tokenLabelSize,
       tokenLabelVisible: state.tokenLabelVisible,
+      tokenLabelHiddenTypes: state.tokenLabelHiddenTypes,
       playerViewport: state.playerViewport ?? null,
       // SSE lite updates strip battle.log to keep payloads small on fog-op events.
       // If incoming battle has the same id but an empty log, preserve the existing log.
@@ -202,6 +205,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setTokenLabelVisible: (tokenLabelVisible) => {
     window.api?.setTokenLabelVisible(tokenLabelVisible)
     set({ tokenLabelVisible, isDirty: true })
+  },
+  setTokenLabelHiddenTypes: (tokenLabelHiddenTypes) => {
+    window.api?.setTokenLabelHiddenTypes(tokenLabelHiddenTypes)
+    set({ tokenLabelHiddenTypes, isDirty: true })
   },
   setSelectedTokenId: (selectedTokenId) => set({ selectedTokenId }),
   setLaserRadius: (laserRadius) => set({ laserRadius }),

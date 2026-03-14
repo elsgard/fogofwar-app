@@ -67,6 +67,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const tokenRadius = useGameStore((s) => s.tokenRadius)
   const tokenLabelSize = useGameStore((s) => s.tokenLabelSize)
   const tokenLabelVisible = useGameStore((s) => s.tokenLabelVisible)
+  const tokenLabelHiddenTypes = useGameStore((s) => s.tokenLabelHiddenTypes)
   const selectedTokenId = useGameStore((s) => s.selectedTokenId)
   const battle = useGameStore((s) => s.battle)
   const laserRadius = useGameStore((s) => s.laserRadius)
@@ -350,6 +351,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     tokenLayerRef.current?.setLabelsVisible(tokenLabelVisible)
   }, [tokenLabelVisible])
 
+  useEffect(() => {
+    tokenLayerRef.current?.setLabelHiddenTypes(tokenLabelHiddenTypes)
+  }, [tokenLabelHiddenTypes])
+
   // ── Fit world into canvas ────────────────────────────────────────────────
   // In DM view the sidebar overlays the left 260px, so we fit into the
   // remaining area and offset the world accordingly.
@@ -578,13 +583,18 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         return
       }
 
-      // Show a hovered token's label in DM view even when labels are globally hidden
-      if (!tokenLabelVisible) {
+      // Show a hovered token's label in DM view when its label is hidden
+      // (either globally via tokenLabelVisible, or per-type via tokenLabelHiddenTypes)
+      const anyHidden = !tokenLabelVisible
+        || tokenLabelHiddenTypes.player
+        || tokenLabelHiddenTypes.npc
+        || tokenLabelHiddenTypes.enemy
+      if (anyHidden) {
         const { x, y } = toMapCoords(e)
         tokenLayerRef.current?.setHoveredToken(tokenLayerRef.current.hitTest(x, y))
       }
     },
-    [isPlayerView, activeTool, brushRadius, tokenLabelVisible, laserRadius, laserColor, toMapCoords, paintAt, updateBrushCursor]
+    [isPlayerView, activeTool, brushRadius, tokenLabelVisible, tokenLabelHiddenTypes, laserRadius, laserColor, toMapCoords, paintAt, updateBrushCursor]
   )
 
   const onPointerUp = useCallback(

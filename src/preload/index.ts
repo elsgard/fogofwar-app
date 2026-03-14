@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType } from '../renderer/src/types'
 
 const api = {
   getState: (): Promise<GameState> => ipcRenderer.invoke(IPC.GET_STATE),
@@ -17,6 +17,8 @@ const api = {
 
   resetFog: (): void => ipcRenderer.send(IPC.RESET_FOG),
   revealAllFog: (): void => ipcRenderer.send(IPC.REVEAL_ALL_FOG),
+  setTokenLabelHiddenTypes: (types: Record<TokenType, boolean>): void =>
+    ipcRenderer.send(IPC.SET_TOKEN_LABEL_HIDDEN_TYPES, types),
   compactFog: (snapshotDataUrl: string): void => ipcRenderer.send(IPC.COMPACT_FOG, snapshotDataUrl),
 
   addToken: (token: Token): void => ipcRenderer.send(IPC.ADD_TOKEN, token),

@@ -361,6 +361,11 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.SET_TOKEN_LABEL_HIDDEN_TYPES, (_, types: GameState['tokenLabelHiddenTypes']) => {
+    gs.setTokenLabelHiddenTypes(types)
+    broadcastState()
+  })
+
   ipcMain.on(IPC.SET_PLAYER_VIEWPORT, (_, vp: PlayerViewport | null) => {
     gs.setPlayerViewport(vp)
     broadcastState()

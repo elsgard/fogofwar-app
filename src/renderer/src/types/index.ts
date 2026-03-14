@@ -112,6 +112,7 @@ export interface GameState {
   tokenRadius: number
   tokenLabelSize: number
   tokenLabelVisible: boolean
+  tokenLabelHiddenTypes: Record<TokenType, boolean>
   playerViewport: PlayerViewport | null
   battle: Battle | null
   monsterReveal: MonsterReveal | null
@@ -163,4 +164,5 @@ export const IPC = {
   SET_MONSTER_REVEAL: 'game:set-monster-reveal',
   COMPACT_FOG: 'game:compact-fog',
   REVEAL_ALL_FOG: 'game:reveal-all-fog',
+  SET_TOKEN_LABEL_HIDDEN_TYPES: 'game:set-token-label-hidden-types',
 } as const

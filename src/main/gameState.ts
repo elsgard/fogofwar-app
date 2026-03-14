@@ -9,6 +9,7 @@ const state: GameState = {
   tokenRadius: 20,
   tokenLabelSize: 14,
   tokenLabelVisible: true,
+  tokenLabelHiddenTypes: { player: false, npc: false, enemy: false },
   playerViewport: null,
   battle: null,
   monsterReveal: null,
@@ -70,6 +71,10 @@ export function setTokenLabelSize(size: number): void {
 
 export function setTokenLabelVisible(visible: boolean): void {
   state.tokenLabelVisible = visible
+}
+
+export function setTokenLabelHiddenTypes(types: GameState['tokenLabelHiddenTypes']): void {
+  state.tokenLabelHiddenTypes = types
 }
 
 export function setPlayerViewport(vp: PlayerViewport | null): void {

@@ -20,6 +20,7 @@ interface TokenSprite {
   label: Text
   color: number
   status: TokenStatus
+  type: Token['type']
 }
 
 const SELECTION_COLOR = 0x00e676
@@ -37,6 +38,7 @@ export class TokenLayer extends Container {
   private radius = DEFAULT_TOKEN_RADIUS
   private labelSize = DEFAULT_LABEL_SIZE
   private labelsVisible = true
+  private labelHiddenTypes: Record<Token['type'], boolean> = { player: false, npc: false, enemy: false }
   private hoveredId: string | null = null
   private selectedId: string | null = null
   private activeTurnId: string | null = null
@@ -129,16 +131,22 @@ export class TokenLayer extends Container {
     this.reconcileLabelVisibility()
   }
 
-  /** Show a single token's label on hover when labels are globally hidden (DM only). */
+  setLabelHiddenTypes(types: Record<Token['type'], boolean>): void {
+    this.labelHiddenTypes = types
+    this.reconcileLabelVisibility()
+  }
+
+  /** Show a single token's label on hover when its label is normally hidden (DM only). */
   setHoveredToken(id: string | null): void {
-    if (this.labelsVisible || id === this.hoveredId) return
+    if (id === this.hoveredId) return
     this.hoveredId = id
     this.reconcileLabelVisibility()
   }
 
   private reconcileLabelVisibility(): void {
     for (const [id, sprite] of this.sprites) {
-      sprite.label.visible = this.labelsVisible || id === this.hoveredId
+      const typeVisible = !this.labelHiddenTypes[sprite.type]
+      sprite.label.visible = (this.labelsVisible && typeVisible) || id === this.hoveredId
     }
   }
 
@@ -226,12 +234,12 @@ export class TokenLayer extends Container {
     const label = new Text({ text: token.label, style: this.makeLabelStyle() })
     label.anchor.set(0.5, 0.5)
     label.y = -(this.radius + 10)
-    label.visible = this.labelsVisible || token.id === this.hoveredId
+    label.visible = (this.labelsVisible && !this.labelHiddenTypes[token.type]) || token.id === this.hoveredId
 
     container.addChild(turnOutline, outline, circle, statusGraphic, statusLabel, label)
     this.addChild(container)
 
-    const sprite: TokenSprite = { container, turnOutline, outline, circle, statusGraphic, statusLabel, label, color, status }
+    const sprite: TokenSprite = { container, turnOutline, outline, circle, statusGraphic, statusLabel, label, color, status, type: token.type }
     this.sprites.set(token.id, sprite)
     this.drawCircle(sprite)
     this.drawTurnOutline(sprite, token.id === this.activeTurnId)

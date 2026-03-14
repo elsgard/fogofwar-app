@@ -70,6 +70,8 @@ export function DMView(): React.JSX.Element {
     setTokenRadius,
     setTokenLabelSize,
     setTokenLabelVisible,
+    tokenLabelHiddenTypes,
+    setTokenLabelHiddenTypes,
     setSelectedTokenId,
     setLaserRadius,
     setLaserColor,
@@ -515,6 +517,22 @@ export function DMView(): React.JSX.Element {
                     />
                     Show labels
                   </label>
+                  {tokenLabelVisible && (
+                    <div style={{ display: 'flex', gap: '12px', paddingLeft: '4px' }}>
+                      {(['player', 'npc', 'enemy'] as const).map((type) => (
+                        <label key={type} className="token-label-toggle" style={{ textTransform: 'capitalize' }}>
+                          <input
+                            type="checkbox"
+                            checked={!tokenLabelHiddenTypes[type]}
+                            onChange={(e) =>
+                              setTokenLabelHiddenTypes({ ...tokenLabelHiddenTypes, [type]: !e.target.checked })
+                            }
+                          />
+                          {type}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </details>
 
