@@ -35,10 +35,25 @@ const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
 
 const TOOL_CYCLE = ['select', 'fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as const
 
+const DOCK_TOOLS = [
+  { id: 'select',     label: 'Select', icon: '⊹', key: 'V' },
+  { id: 'fog-reveal', label: 'Reveal', icon: '◐', key: 'R' },
+  { id: 'fog-hide',   label: 'Hide',   icon: '◑', key: 'H' },
+  { id: 'token-move', label: 'Move',   icon: '✥', key: 'T' },
+  { id: 'pan',        label: 'Pan',    icon: '⤢', key: 'P' },
+  { id: 'laser',      label: 'Laser',  icon: '✦', key: 'L' },
+] as const
+
+const LASER_COLORS = ['#ff2222', '#ff9800', '#ffeb3b', '#4caf50', '#4a9eff', '#ffffff']
+
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const menubarRef = useRef<HTMLElement>(null)
   const monsterFileRef = useRef<HTMLInputElement>(null)
+  const dockRef = useRef<HTMLDivElement>(null)
+  const dockVisibleRef = useRef(false)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [dockVisible, setDockVisible] = useState(false)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
   const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
@@ -123,6 +138,7 @@ export function DMView(): React.JSX.Element {
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      let switched = true
       switch (e.key.toLowerCase()) {
         case 'v': setActiveTool('select'); break
         case 'r': setActiveTool('fog-reveal'); break
@@ -136,7 +152,9 @@ export function DMView(): React.JSX.Element {
           setActiveTool(TOOL_CYCLE[(idx + 1) % TOOL_CYCLE.length])
           break
         }
+        default: switched = false
       }
+      if (switched) { showDock(); scheduleDockHide() }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -151,6 +169,38 @@ export function DMView(): React.JSX.Element {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [openMenu])
+
+  // Dock auto-show/hide: appear when near bottom, hide 1s after leaving
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent): void => {
+      // Use a larger threshold when dock is visible to keep it shown while using popovers
+      const threshold = dockVisibleRef.current ? 220 : 60
+      if (e.clientY > window.innerHeight - threshold) {
+        showDock()
+      } else if (hideTimerRef.current === null) {
+        scheduleDockHide()
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    }
+  }, [])
+
+  function showDock(): void {
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null }
+    dockVisibleRef.current = true
+    setDockVisible(true)
+  }
+
+  function scheduleDockHide(): void {
+    hideTimerRef.current = setTimeout(() => {
+      dockVisibleRef.current = false
+      setDockVisible(false)
+      hideTimerRef.current = null
+    }, 1000)
+  }
 
   function toggleMenu(id: typeof openMenu): void {
     setOpenMenu((prev) => (prev === id ? null : id))
@@ -401,88 +451,9 @@ export function DMView(): React.JSX.Element {
       {/* ── Left sidebar ── */}
       <aside className="sidebar">
 
-        {/* Tools + Tokens + Viewport (only when map loaded) */}
+        {/* Tokens + token list (only when map loaded) */}
         {map && (
           <>
-            <section className="sidebar-section">
-              <h3>Tools</h3>
-              <div className="tool-grid">
-                {(
-                  [
-                    { id: 'select', label: 'Smart Select', key: 'V' },
-                    { id: 'fog-reveal', label: 'Reveal Fog', key: 'R' },
-                    { id: 'fog-hide', label: 'Hide Fog', key: 'H' },
-                    { id: 'token-move', label: 'Move Token', key: 'T' },
-                    { id: 'pan', label: 'Pan / Zoom', key: 'P' },
-                    { id: 'laser', label: 'Laser Pointer', key: 'L' },
-                  ] as const
-                ).map((tool) => (
-                  <button
-                    key={tool.id}
-                    className={`btn ${activeTool === tool.id ? 'btn-active' : 'btn-secondary'}`}
-                    onClick={() => setActiveTool(tool.id)}
-                    title={`${tool.label} (${tool.key})`}
-                  >
-                    {tool.label} <kbd>{tool.key}</kbd>
-                  </button>
-                ))}
-              </div>
-
-              {(activeTool === 'select' || activeTool === 'fog-reveal' || activeTool === 'fog-hide') && (
-                <label className="brush-label">
-                  Brush size: {brushRadius}px
-                  <input
-                    type="range"
-                    min={10}
-                    max={300}
-                    value={brushRadius}
-                    onChange={(e) => setBrushRadius(Number(e.target.value))}
-                  />
-                </label>
-              )}
-
-              {activeTool === 'laser' && (
-                <>
-                  <label className="brush-label">
-                    Pointer size: {laserRadius}px
-                    <input
-                      type="range"
-                      min={4}
-                      max={32}
-                      value={laserRadius}
-                      onChange={(e) => setLaserRadius(Number(e.target.value))}
-                    />
-                  </label>
-                  <div className="color-swatches">
-                    {['#ff2222', '#ff9800', '#ffeb3b', '#4caf50', '#4a9eff', '#ffffff'].map((c) => (
-                      <button
-                        key={c}
-                        className={`swatch ${laserColor === c ? 'swatch-active' : ''}`}
-                        style={{ background: c }}
-                        onClick={() => setLaserColor(c)}
-                      />
-                    ))}
-                    <label
-                      className={`swatch swatch-picker ${!['#ff2222','#ff9800','#ffeb3b','#4caf50','#4a9eff','#ffffff'].includes(laserColor) ? 'swatch-active' : ''}`}
-                      style={!['#ff2222','#ff9800','#ffeb3b','#4caf50','#4a9eff','#ffffff'].includes(laserColor) ? { background: laserColor } : undefined}
-                      title="Custom color"
-                    >
-                      <input type="color" value={laserColor} onChange={(e) => setLaserColor(e.target.value)} />
-                    </label>
-                  </div>
-                </>
-              )}
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={revealAllFog} style={{ flex: 1 }}>
-                  Reveal All
-                </button>
-                <button className="btn btn-danger" onClick={resetFog} style={{ flex: 1 }}>
-                  Reset Fog
-                </button>
-              </div>
-            </section>
-
             {/* Tokens section */}
             <section className="sidebar-section">
               <h3>Tokens</h3>
@@ -696,7 +667,17 @@ export function DMView(): React.JSX.Element {
 
         {selectedToken && (
           <section className="sidebar-section">
-            <h3>Edit Token</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3>Edit Token</h3>
+              <button
+                className="btn-icon"
+                title="Deselect token"
+                onClick={() => setSelectedTokenId(null)}
+                style={{ fontSize: 12, opacity: 0.6 }}
+              >
+                ✕
+              </button>
+            </div>
             <div className="token-form">
               <input
                 type="text"
@@ -809,6 +790,84 @@ export function DMView(): React.JSX.Element {
           </div>
         )}
       </div>
+
+      {/* ── Tool Dock ── */}
+      {map && (
+        <div ref={dockRef} className={`tool-dock ${dockVisible ? 'tool-dock-visible' : ''}`}>
+          {DOCK_TOOLS.map((tool) => (
+            <div key={tool.id} className="dock-slot">
+              {activeTool === tool.id && (tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide' || tool.id === 'laser') && (
+                <div className="dock-popover">
+                  {(tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide') && (
+                    <>
+                      <label className="brush-label">
+                        Brush: {brushRadius}px
+                        <input
+                          type="range"
+                          min={10}
+                          max={300}
+                          value={brushRadius}
+                          onChange={(e) => setBrushRadius(Number(e.target.value))}
+                        />
+                      </label>
+                      {tool.id === 'fog-reveal' && (
+                        <button className="btn btn-secondary" onClick={revealAllFog} style={{ fontSize: 12 }}>
+                          Reveal All
+                        </button>
+                      )}
+                      {tool.id === 'fog-hide' && (
+                        <button className="btn btn-danger" onClick={resetFog} style={{ fontSize: 12 }}>
+                          Reset Fog
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {tool.id === 'laser' && (
+                    <>
+                      <label className="brush-label">
+                        Size: {laserRadius}px
+                        <input
+                          type="range"
+                          min={4}
+                          max={32}
+                          value={laserRadius}
+                          onChange={(e) => setLaserRadius(Number(e.target.value))}
+                        />
+                      </label>
+                      <div className="color-swatches">
+                        {LASER_COLORS.map((c) => (
+                          <button
+                            key={c}
+                            className={`swatch ${laserColor === c ? 'swatch-active' : ''}`}
+                            style={{ background: c }}
+                            onClick={() => setLaserColor(c)}
+                          />
+                        ))}
+                        <label
+                          className={`swatch swatch-picker ${!LASER_COLORS.includes(laserColor) ? 'swatch-active' : ''}`}
+                          style={!LASER_COLORS.includes(laserColor) ? { background: laserColor } : undefined}
+                          title="Custom color"
+                        >
+                          <input type="color" value={laserColor} onChange={(e) => setLaserColor(e.target.value)} />
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              <button
+                className={`dock-btn ${activeTool === tool.id ? 'dock-btn-active' : ''}`}
+                onClick={() => setActiveTool(tool.id)}
+                title={`${tool.label} (${tool.key})`}
+              >
+                <span className="dock-icon">{tool.icon}</span>
+                <span className="dock-label">{tool.label}</span>
+                <kbd>{tool.key}</kbd>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
     </div>
   )
