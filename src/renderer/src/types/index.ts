@@ -104,6 +104,14 @@ export interface MonsterReveal {
   name: string
 }
 
+export interface IdleEffects {
+  smoke: boolean
+  glow: boolean
+  embers: boolean
+  lightning: boolean
+  pulse: boolean
+}
+
 export interface GameState {
   map: MapInfo | null
   fogOps: FogOp[]
@@ -116,6 +124,8 @@ export interface GameState {
   playerViewport: PlayerViewport | null
   battle: Battle | null
   monsterReveal: MonsterReveal | null
+  idleMode: boolean
+  idleEffects: IdleEffects
 }
 
 export interface PartyFile {
@@ -162,6 +172,7 @@ export const IPC = {
   SAVE_PARTY: 'game:save-party',
   LOAD_PARTY: 'game:load-party',
   SET_MONSTER_REVEAL: 'game:set-monster-reveal',
+  SET_IDLE_MODE: 'game:set-idle-mode',
   COMPACT_FOG: 'game:compact-fog',
   REVEAL_ALL_FOG: 'game:reveal-all-fog',
   SET_TOKEN_LABEL_HIDDEN_TYPES: 'game:set-token-label-hidden-types',

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal } from '../types'
+import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal, IdleEffects } from '../types'
 import type { MonsterEntry } from '../types/monster'
 
 interface GameStore extends GameState {
@@ -45,6 +45,7 @@ interface GameStore extends GameState {
   setPlayerViewport: (vp: PlayerViewport | null) => void
   setBattle: (battle: Battle | null) => void
   setMonsterReveal: (reveal: MonsterReveal | null) => void
+  setIdleMode: (active: boolean, effects: IdleEffects) => void
 
   // Persistence
   isDirty: boolean
@@ -65,6 +66,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // GameState extras
   battle: null,
   monsterReveal: null,
+  idleMode: false,
+  idleEffects: { smoke: true, glow: true, embers: true, lightning: true, pulse: true },
 
   // DM-local state (not broadcast)
   monsters: null,
@@ -114,6 +117,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ? { ...state.battle, log: s.battle!.log }
           : state.battle,
       monsterReveal: state.monsterReveal ?? null,
+      idleMode: state.idleMode ?? false,
+      idleEffects: state.idleEffects ?? { smoke: true, glow: true, embers: true, lightning: true, pulse: true },
   })),
 
   loadMap: async () => {
@@ -220,6 +225,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setMonsterReveal: (reveal) => {
     window.api?.setMonsterReveal(reveal)
     set({ monsterReveal: reveal })
+  },
+  setIdleMode: (active, effects) => {
+    window.api?.setIdleMode(active, effects)
+    set({ idleMode: active, idleEffects: effects })
   },
   setPlayerViewport: (vp) => {
     window.api?.setPlayerViewport(vp)

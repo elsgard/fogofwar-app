@@ -100,6 +100,17 @@ export function HelpModal({ onClose }: Props): React.JSX.Element {
             </ul>
           </section>
 
+          {/* Idle Screen */}
+          <section>
+            <h4 style={sectionHeading}>Idle Screen</h4>
+            <ul style={list}>
+              <li>Click <strong>🌑 Idle</strong> in the top-right of the menu bar to show players an atmospheric waiting screen, even when a map is loaded — useful while you prepare in secret.</li>
+              <li>The idle screen shows a rock texture with a vignette, a pulsating red glow, rising smoke, dying-fire embers, and occasional lightning flashes.</li>
+              <li>After one minute the screen starts cycling through D&amp;D jokes, changing every minute.</li>
+              <li>Use the <strong>🌑 Idle</strong> popover to toggle individual effects: <strong>Smoke</strong>, <strong>Glow</strong>, <strong>Embers</strong>, <strong>Lightning</strong>, and <strong>Pulse</strong> (the red glow).</li>
+            </ul>
+          </section>
+
           {/* Session */}
           <section>
             <h4 style={sectionHeading}>Session</h4>
@@ -108,6 +119,17 @@ export function HelpModal({ onClose }: Props): React.JSX.Element {
               <li><strong>Export Party…</strong> / <strong>Import Party…</strong> — share a group of tokens between sessions as a <code style={code}>.fowparty</code> file.</li>
               <li><strong>Load Monster DB…</strong> — load a local JSON monster database to enable quick token creation from stat blocks.</li>
             </ul>
+          </section>
+
+          {/* Credits */}
+          <section style={{ marginTop: 4 }}>
+            <h4 style={sectionHeading}>Credits</h4>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Made by <strong style={{ color: 'var(--text)' }}>Jonatan Elsgard</strong>, co-authored by <strong style={{ color: 'var(--text)' }}>Claude</strong>.{' '}
+              <a href="https://github.com/elsgard/fogofwar-app" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+                github.com/elsgard/fogofwar-app
+              </a>
+            </p>
           </section>
 
         </div>

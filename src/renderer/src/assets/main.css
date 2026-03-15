@@ -31,7 +31,10 @@ body,
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -105,6 +108,75 @@ body,
   gap: 2px;
   padding-left: 8px;
   border-left: 1px solid var(--border);
+}
+
+/* ── Idle mode popover ──────────────────────────────────────────────────── */
+.idle-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 200;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.idle-popover-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.idle-mode-btn {
+  padding: 2px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+.idle-mode-btn.active {
+  background: #c0392b;
+  border-color: #e74c3c;
+  color: #fff;
+}
+
+.idle-popover-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 -4px;
+}
+
+.idle-popover-effects {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.idle-effect-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.idle-effect-row input[type='checkbox'] {
+  cursor: pointer;
+  accent-color: #e74c3c;
 }
 
 .menu-dropdown {
@@ -237,8 +309,12 @@ body,
   gap: 6px;
   user-select: none;
 }
-.subsection-header::-webkit-details-marker { display: none; }
-.subsection-header::marker { display: none; }
+.subsection-header::-webkit-details-marker {
+  display: none;
+}
+.subsection-header::marker {
+  display: none;
+}
 
 .subsection-header::before {
   content: '▶';
@@ -293,11 +369,74 @@ details[open] > .subsection-header::before {
   inset: 0;
   z-index: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  gap: 24px;
+  background-color: #000;
+  background-size: cover;
+  background-position: center;
   color: var(--text-muted);
   font-size: 18px;
+}
+
+/* Darken the texture */
+.idle-overlay-dark {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+/* Vignette — hard black at the edges */
+.idle-overlay-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 25%,
+    rgba(0, 0, 0, 0.8) 60%,
+    rgba(0, 0, 0, 1) 80%
+  );
+  pointer-events: none;
+}
+
+/* Pulsating red glow from the center — opacity driven by JS */
+.idle-overlay-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(150, 10, 0, 0.38) 0%,
+    rgba(80, 0, 0, 0.18) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.player-waiting-title {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+.player-waiting-icon {
+  position: relative;
+  z-index: 1;
+  width: 160px;
+  height: 160px;
+  opacity: 0.9;
+}
+
+.player-waiting > p {
+  position: relative;
+  z-index: 1;
+  white-space: pre-line;
+  text-align: center;
 }
 
 /* ── Modal dialog ───────────────────────────────────────────────── */
@@ -335,7 +474,9 @@ details[open] > .subsection-header::before {
   letter-spacing: 0.06em;
 }
 
-.dialog-header span { flex: 1; }
+.dialog-header span {
+  flex: 1;
+}
 
 .dialog-body {
   flex: 1;
@@ -380,8 +521,8 @@ kbd {
   margin-left: 5px;
   padding: 0 4px;
   border-radius: 3px;
-  border: 1px solid rgba(255,255,255,0.2);
-  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   font-size: 10px;
   font-family: inherit;
   line-height: 16px;
@@ -571,7 +712,10 @@ kbd {
   font-weight: 600;
   background: var(--bg);
   color: var(--text-muted);
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
   user-select: none;
 }
 
@@ -727,7 +871,9 @@ kbd {
 
 /* ── Monster Search Modal ───────────────────────────────────────── */
 
-.dialog-wide { width: 500px; }
+.dialog-wide {
+  width: 500px;
+}
 
 .monster-search-input {
   background: var(--bg);
@@ -740,7 +886,9 @@ kbd {
   outline: none;
 }
 
-.monster-search-input:focus { border-color: var(--accent); }
+.monster-search-input:focus {
+  border-color: var(--accent);
+}
 
 .monster-list {
   list-style: none;
@@ -761,7 +909,9 @@ kbd {
   transition: background 0.1s;
 }
 
-.monster-item:hover { background: var(--bg-hover); }
+.monster-item:hover {
+  background: var(--bg-hover);
+}
 
 .monster-name {
   flex: 1;
@@ -895,14 +1045,26 @@ kbd {
   letter-spacing: 0.04em;
 }
 
-.sheet-section p { margin-bottom: 6px; font-size: 13px; line-height: 1.5; }
-.sheet-section em { color: var(--text-muted); }
+.sheet-section p {
+  margin-bottom: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sheet-section em {
+  color: var(--text-muted);
+}
 
 /* ── Monster reveal overlay ─────────────────────────────────────── */
 
 @keyframes slideInRight {
-  from { transform: translateX(calc(100% + 24px)); opacity: 0; }
-  to   { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .monster-reveal {
@@ -946,7 +1108,9 @@ kbd {
   border-radius: calc(var(--radius) - 2px);
   object-fit: contain;
 }
-.sheet-section strong { color: var(--text); }
+.sheet-section strong {
+  color: var(--text);
+}
 
 /* ── Tool Dock ──────────────────────────────────────────────────── */
 
@@ -997,7 +1161,10 @@ kbd {
   background: var(--bg-hover);
   color: var(--text);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
   padding: 6px 4px;
 }
 

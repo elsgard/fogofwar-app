@@ -478,6 +478,11 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.SET_IDLE_MODE, (_, { active, effects }) => {
+    gs.setIdleMode(active, effects)
+    broadcastState()
+  })
+
   ipcMain.handle(IPC.SAVE_PARTY, async (_, tokens: PartyFile['tokens']): Promise<{ success: boolean; error?: string }> => {
     const { filePath } = await dialog.showSaveDialog({
       title: 'Export Party',

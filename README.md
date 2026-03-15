@@ -26,6 +26,7 @@ Built with Electron, React, TypeScript, and PixiJS v8 for WebGL rendering.
 - **Monster database** — load a local D&D 5e monster JSON file; search by name to auto-fill token stats; view full character sheet (stat block + abilities + traits/actions) from the token editor or battle tracker
 - **Monster reveal** — DM sends a monster portrait to the player view from the character sheet; slides in from the right with the creature name; DM can dismiss it at any time
 - **Battle tracker** — initiative order with automatic tie-breaking; per-combatant HP / AC tracking; turn cycling with round counter; effects / conditions with round-duration countdowns; attack actions with roll logging; full battle log; links combatants to map tokens; party export / import (`.fowparty`)
+- **Idle screen** — DM can activate a cinematic waiting screen for players (🌑 Idle button in menu bar) at any time, even while a map is loaded; features a rock texture background, vignette, procedural rising smoke, dying-fire embers, flickering glow, and random lightning flashes; after one minute cycles through D&D jokes; each effect is individually toggleable via a popover
 
 ---
 
@@ -74,10 +75,11 @@ src/
       TokenLayer.ts — Token sprites with hit testing and selection highlight
       LaserLayer.ts — Laser pointer dot + fading trail (PixiJS ticker, map space)
     components/
-      MapCanvas.tsx — PixiJS Application, all pointer event handling
+      MapCanvas.tsx   — PixiJS Application, all pointer event handling
+      SmokeCanvas.tsx — Standalone PixiJS particle system for the idle screen
     views/
       DMView.tsx    — Menu bar + sidebar + canvas (DM editor)
-      PlayerView.tsx— Fullscreen read-only canvas
+      PlayerView.tsx— Fullscreen read-only canvas + idle screen overlays
     types/index.ts  — Shared types (Token, FogOp, MapInfo, IPC constants)
 ```
 

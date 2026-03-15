@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType, IdleEffects } from '../renderer/src/types'
 
 const api = {
   getState: (): Promise<GameState> => ipcRenderer.invoke(IPC.GET_STATE),
@@ -47,6 +47,9 @@ const api = {
   setBattle: (battle: Battle | null): void => ipcRenderer.send(IPC.SET_BATTLE, battle),
 
   setMonsterReveal: (reveal: MonsterReveal | null): void => ipcRenderer.send(IPC.SET_MONSTER_REVEAL, reveal),
+
+  setIdleMode: (active: boolean, effects: IdleEffects): void =>
+    ipcRenderer.send(IPC.SET_IDLE_MODE, { active, effects }),
 
   saveParty: (tokens: Token[]): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.SAVE_PARTY, tokens),

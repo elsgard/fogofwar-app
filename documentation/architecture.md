@@ -105,6 +105,7 @@ src/
     │   └── BattlePanel.tsx  Slide-out battle tracker panel
     ├── components/
     │   ├── MapCanvas.tsx            PixiJS host — all pointer/wheel events
+    │   ├── SmokeCanvas.tsx          Standalone PixiJS particle system (idle screen)
     │   ├── MonsterRevealOverlay.tsx Sliding portrait panel (player view)
     │   ├── InitiativeStrip.tsx      Initiative order strip (player view)
     │   ├── CharacterSheetModal.tsx  Full monster stat block viewer
@@ -141,6 +142,16 @@ interface GameState {
   playerViewport: PlayerViewport | null      // pushed camera position
   battle: Battle | null                      // active battle tracker state
   monsterReveal: MonsterReveal | null        // portrait shown on player view
+  idleMode: boolean                          // show idle screen on player view
+  idleEffects: IdleEffects                   // per-effect toggles for the idle screen
+}
+
+interface IdleEffects {
+  smoke: boolean      // rising smoke particles
+  glow: boolean       // flickering dying-fire glow blobs at the bottom
+  embers: boolean     // small orange-yellow spark particles
+  lightning: boolean  // rare full-screen white flash
+  pulse: boolean      // pulsating red radial glow overlay
 }
 ```
 
@@ -193,19 +204,37 @@ The DM editor. Layout:
 └──────────────────┴───────────────────────────────────┘
 ```
 
-The menu bar has three dropdown menus (Session, Map, Player) and two plain buttons (Battle, Push View). Dropdowns are managed with a single `openMenu` state and close on click-outside via a `mousedown` listener.
+The menu bar has three dropdown menus (Session, Map, Player) and several plain buttons. Dropdowns are managed with a single `openMenu` state and close on click-outside via a `mousedown` listener.
+
+The right side of the menu bar always shows a **🌑 Idle** button. Clicking it opens a popover with an ON/OFF toggle and five checkboxes (Smoke, Glow, Embers, Lightning, Pulse) for individual idle screen effects. When a map is loaded, **Push View →** and **Reset View** buttons also appear.
 
 The sidebar is a flex column with `overflow: hidden`. The token list section uses `flex: 1; min-height: 0` to fill all remaining space and scrolls internally. This is important: the sidebar itself must not scroll.
 
 ### `PlayerView.tsx`
 
-Minimal: a full-window `MapCanvas` with three optional overlays:
+A full-window `MapCanvas` with optional overlays:
 
 - `InitiativeStrip` — shown when a battle is active
 - `MonsterRevealOverlay` — slides in from the right when the DM reveals a monster portrait
-- A "waiting for DM" message when no map is loaded
+- **Idle screen** — shown when `idleMode` is true **or** no map is loaded; covers the canvas with an atmospheric waiting screen
 
 `MapCanvas` is always mounted (even before a map is loaded) so that PixiJS and the WebGL context are fully initialized by the time the first state update arrives. Mounting it lazily would cause an initialization race where early fog ops are dropped.
+
+#### Idle Screen
+
+The idle screen layers several effects over a rock texture background:
+
+| Layer | Implementation |
+|---|---|
+| Rock texture | CSS `background-image` on the waiting div |
+| Dark overlay | `rgba(0,0,0,0.85)` div |
+| Vignette | Radial gradient div (transparent center → solid black at 80% radius) |
+| Red pulse | `rgba` radial gradient div; opacity driven by a `requestAnimationFrame` loop summing four sines at irrational frequencies plus random flares — never periodic |
+| Smoke / fire / lightning | `SmokeCanvas` — a separate PixiJS `Application` with transparent background mounted over the overlays |
+
+`SmokeCanvas` runs its own PixiJS ticker with three particle systems (smoke puffs, ember sparks, full-screen lightning flashes) and five flickering glow blobs at the bottom edge. Each system is gated by its corresponding flag in `idleEffects` via a ref, so toggling an effect takes place on the next frame without remounting.
+
+After 60 seconds the bottom text transitions from "The Dungeon Master is preparing…" to a randomly shuffled queue of D&D jokes, cycling every minute.
 
 ---
 
@@ -289,6 +318,7 @@ IPC channel names are defined as constants in `src/renderer/src/types/index.ts` 
 | `game:laser-pointer` | send | Broadcast laser position (throttled ~60fps) |
 | `game:set-battle` | send | Update full battle state |
 | `game:set-monster-reveal` | send | Set/clear monster portrait on player view |
+| `game:set-idle-mode` | send | Set `idleMode` + `idleEffects`; shows/hides idle screen |
 
 ### Stroke Batching
 

@@ -57,6 +57,7 @@ export function DMView(): React.JSX.Element {
   const [dockVisible, setDockVisible] = useState(false)
   const [showCloseWarning, setShowCloseWarning] = useState(false)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
+  const [showIdlePopover, setShowIdlePopover] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
   const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
@@ -101,6 +102,9 @@ export function DMView(): React.JSX.Element {
     loadScene,
     saveParty,
     loadParty,
+    idleMode,
+    idleEffects,
+    setIdleMode,
   } = useGameStore()
 
   const [newTokenLabel, setNewTokenLabel] = useState('')
@@ -189,6 +193,16 @@ export function DMView(): React.JSX.Element {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [openMenu])
+
+  // Close idle popover when clicking outside the menu bar
+  useEffect(() => {
+    if (!showIdlePopover) return
+    const handler = (e: MouseEvent): void => {
+      if (!menubarRef.current?.contains(e.target as Node)) setShowIdlePopover(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showIdlePopover])
 
   // Dock auto-show/hide: appear when near bottom, hide 1s after leaving
   useEffect(() => {
@@ -458,8 +472,44 @@ export function DMView(): React.JSX.Element {
         </button>
 
         {/* Right-side: Player View controls */}
-        {map && (
-          <div className="menubar-right">
+        <div className="menubar-right">
+          {/* Idle mode button + popover */}
+          <div className="menu-item" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            <button
+              className={`menu-trigger ${idleMode ? 'open' : ''}`}
+              title="Show the idle screen to players"
+              onClick={() => setShowIdlePopover((v) => !v)}
+            >
+              {idleMode ? '🌑 Idle' : '🌑 Idle'}
+            </button>
+            {showIdlePopover && (
+              <div className="idle-popover">
+                <label className="idle-popover-toggle">
+                  <span>Idle Screen</span>
+                  <button
+                    className={`idle-mode-btn ${idleMode ? 'active' : ''}`}
+                    onClick={() => setIdleMode(!idleMode, idleEffects)}
+                  >
+                    {idleMode ? 'ON' : 'OFF'}
+                  </button>
+                </label>
+                <div className="idle-popover-divider" />
+                <div className="idle-popover-effects">
+                  {(['smoke', 'glow', 'embers', 'lightning', 'pulse'] as const).map((key) => (
+                    <label key={key} className="idle-effect-row">
+                      <input
+                        type="checkbox"
+                        checked={idleEffects[key]}
+                        onChange={() => setIdleMode(idleMode, { ...idleEffects, [key]: !idleEffects[key] })}
+                      />
+                      <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {map && (<>
             <button
               className="menu-trigger"
               title="Push your current pan/zoom to the player view"
@@ -477,8 +527,8 @@ export function DMView(): React.JSX.Element {
             >
               Reset View
             </button>
-          </div>
-        )}
+          </>)}
+        </div>
       </nav>
 
       {/* ── Left sidebar ── */}
