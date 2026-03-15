@@ -74,6 +74,7 @@
   cursor: default;
   transition: background 0.1s;
   min-height: 34px;
+  position: relative;
 }
 
 .combatant-row:hover {
@@ -150,6 +151,14 @@
   white-space: nowrap;
 }
 
+.combatant-stats {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .combatant-effects {
   display: flex;
   gap: 3px;
@@ -185,11 +194,16 @@
 }
 
 .combatant-row-actions {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
-  gap: 3px;
+  gap: 2px;
   opacity: 0;
   transition: opacity 0.1s;
-  flex-shrink: 0;
+  background: var(--bg-hover);
+  border-radius: var(--radius);
 }
 
 .combatant-row:hover .combatant-row-actions {

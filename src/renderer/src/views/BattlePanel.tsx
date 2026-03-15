@@ -317,37 +317,13 @@ function CombatantRow({ combatant: c, token, round, onUpdate, onRemove, onViewSh
   }
 
   return (
-    <div className={`combatant-row${c.isActive ? ' is-active' : ''}${displayHp === 0 ? ' is-dead' : ''}`}
-         style={{ position: 'relative' }}>
+    <div className={`combatant-row${c.isActive ? ' is-active' : ''}${displayHp === 0 ? ' is-dead' : ''}`}>
       <span className="combatant-initiative">{c.initiative}</span>
       <span
         className="combatant-token-dot"
         style={{ background: displayColor }}
       />
       <span className={`combatant-name${c.isActive ? ' is-active' : ''}`}>{displayName}</span>
-
-      {displayHp !== null && (
-        editingHp ? (
-          <input
-            className="combatant-hp-input"
-            autoFocus
-            value={hpInput}
-            onChange={(e) => setHpInput(e.target.value)}
-            onBlur={commitHp}
-            onKeyDown={(e) => { if (e.key === 'Enter') commitHp(); if (e.key === 'Escape') setEditingHp(false) }}
-          />
-        ) : (
-          <span
-            className="combatant-hp"
-            title="Click to edit HP"
-            onClick={() => { setHpInput(String(displayHp)); setEditingHp(true) }}
-          >
-            {displayHp}/{displayHpMax ?? '?'}
-          </span>
-        )
-      )}
-
-      {displayAc !== null && <span className="combatant-ac">AC {displayAc}</span>}
 
       <div className="combatant-effects">
         {c.effects.map((ef) => (
@@ -358,15 +334,38 @@ function CombatantRow({ combatant: c, token, round, onUpdate, onRemove, onViewSh
         ))}
       </div>
 
-      {monsterSheet && (
-        <button
-          className="btn-icon"
-          title="View character sheet"
-          onClick={() => onViewSheet(monsterSheet)}
-        >📋</button>
-      )}
+      <div className="combatant-stats">
+        {displayHp !== null && (
+          editingHp ? (
+            <input
+              className="combatant-hp-input"
+              autoFocus
+              value={hpInput}
+              onChange={(e) => setHpInput(e.target.value)}
+              onBlur={commitHp}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitHp(); if (e.key === 'Escape') setEditingHp(false) }}
+            />
+          ) : (
+            <span
+              className="combatant-hp"
+              title="Click to edit HP"
+              onClick={() => { setHpInput(String(displayHp)); setEditingHp(true) }}
+            >
+              {displayHp}/{displayHpMax ?? '?'}
+            </span>
+          )
+        )}
+        {displayAc !== null && <span className="combatant-ac">AC {displayAc}</span>}
+      </div>
 
-      <div className="combatant-row-actions" style={{ position: 'relative' }}>
+      <div className="combatant-row-actions">
+        {monsterSheet && (
+          <button
+            className="btn-icon"
+            title="View character sheet"
+            onClick={() => onViewSheet(monsterSheet)}
+          >📋</button>
+        )}
         <button
           ref={effectButtonRef}
           className="btn-icon"

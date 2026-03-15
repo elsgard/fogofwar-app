@@ -536,7 +536,7 @@ export function DMView(): React.JSX.Element {
                       value={newTokenLabel}
                       onChange={(e) => { setNewTokenLabel(e.target.value); if (pendingMonsterEntry) setPendingMonsterEntry(null) }}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddToken()}
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, minWidth: 0 }}
                     />
                     {monsters && (
                       <button
