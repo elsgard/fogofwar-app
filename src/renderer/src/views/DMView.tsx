@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MapCanvas } from '../components/MapCanvas'
 import type { MapCanvasHandle } from '../components/MapCanvas'
 import { BattlePanel } from './BattlePanel'
+import { HelpModal } from '../components/HelpModal'
 import { ExportPartyDialog } from '../components/ExportPartyDialog'
 import { MonsterSearchModal } from '../components/MonsterSearchModal'
 import { CharacterSheetModal } from '../components/CharacterSheetModal'
@@ -55,6 +56,7 @@ export function DMView(): React.JSX.Element {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [dockVisible, setDockVisible] = useState(false)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
   const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
   const [showMonsterSearch, setShowMonsterSearch] = useState(false)
@@ -137,6 +139,7 @@ export function DMView(): React.JSX.Element {
   // Tool keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'F1') { e.preventDefault(); setShowHelp(true); return }
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       let switched = true
       switch (e.key.toLowerCase()) {
@@ -422,6 +425,11 @@ export function DMView(): React.JSX.Element {
           onClick={() => setShowBattlePanel((v) => !v)}
         >
           Battle{battle?.isActive ? ' ⚔' : ''}
+        </button>
+
+        {/* Help button */}
+        <button className="menu-trigger" onClick={() => setShowHelp(true)} title="User Guide (F1)">
+          ?
         </button>
 
         {/* Right-side: Player View controls */}
@@ -751,6 +759,8 @@ export function DMView(): React.JSX.Element {
 
       {/* ── Battle panel (right side overlay) ── */}
       {showBattlePanel && <BattlePanel onClose={() => setShowBattlePanel(false)} />}
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
       {showExportPartyDialog && (
         <ExportPartyDialog
