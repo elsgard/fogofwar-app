@@ -288,9 +288,17 @@ export function DMView(): React.JSX.Element {
   }
 
   function handleCopyToken(token: Token): void {
+    // Strip trailing number to get the base name (e.g. "Goblin 3" → "Goblin")
+    const base = token.label.replace(/ \d+$/, '').trimEnd()
+    const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( (\\d+))?$`)
+    const maxN = tokens.reduce((max, t) => {
+      const m = t.label.match(re)
+      if (!m) return max
+      return Math.max(max, m[2] ? parseInt(m[2], 10) : 1)
+    }, 0)
     addToken({
       type: token.type,
-      label: token.label,
+      label: `${base} ${maxN + 1}`,
       color: token.color,
       x: token.x + 40,
       y: token.y + 40,
