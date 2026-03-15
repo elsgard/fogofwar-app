@@ -68,6 +68,14 @@ const api = {
     ipcRenderer.on(IPC.STATE_UPDATE, handler)
     return () => ipcRenderer.off(IPC.STATE_UPDATE, handler)
   },
+
+  onCheckClose: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on(IPC.APP_CHECK_CLOSE, handler)
+    return () => ipcRenderer.off(IPC.APP_CHECK_CLOSE, handler)
+  },
+
+  confirmClose: (): void => ipcRenderer.send(IPC.APP_CONFIRM_CLOSE),
 }
 
 if (process.contextIsolated) {

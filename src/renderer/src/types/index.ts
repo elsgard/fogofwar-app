@@ -165,4 +165,6 @@ export const IPC = {
   COMPACT_FOG: 'game:compact-fog',
   REVEAL_ALL_FOG: 'game:reveal-all-fog',
   SET_TOKEN_LABEL_HIDDEN_TYPES: 'game:set-token-label-hidden-types',
+  APP_CHECK_CLOSE: 'app:check-close',
+  APP_CONFIRM_CLOSE: 'app:confirm-close',
 } as const

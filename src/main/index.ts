@@ -176,6 +176,12 @@ function createDMWindow(): void {
 
   dmWindow.on('ready-to-show', () => dmWindow!.show())
 
+  // Ask renderer to check for unsaved changes before closing
+  dmWindow.on('close', (event) => {
+    event.preventDefault()
+    dmWindow!.webContents.send(IPC.APP_CHECK_CLOSE)
+  })
+
   // Allow DevTools to be toggled with F12 in all builds (including production)
   dmWindow.webContents.on('before-input-event', (_, input) => {
     if (input.type === 'keyDown' && input.key === 'F12') {
@@ -265,6 +271,9 @@ app.whenReady().then(() => {
 
   // Returns the full current game state (renderer calls this on mount)
   ipcMain.handle(IPC.GET_STATE, () => gs.getState())
+
+  // Renderer confirmed it's safe to close (no unsaved changes, or user chose to discard)
+  ipcMain.on(IPC.APP_CONFIRM_CLOSE, () => dmWindow?.destroy())
 
   // Opens a native file dialog and returns the selected image as a data URL + file path
   ipcMain.handle(IPC.LOAD_MAP, async () => {

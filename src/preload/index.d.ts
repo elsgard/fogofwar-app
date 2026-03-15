@@ -29,6 +29,8 @@ export interface FogOfWarAPI {
   sendLaserPointer: (pos: { x: number; y: number; radius: number; color: string } | null) => void
   onLaserPointer: (cb: (pos: { x: number; y: number; radius: number; color: string } | null) => void) => () => void
   onStateUpdate: (cb: (state: GameState) => void) => () => void
+  onCheckClose: (cb: () => void) => () => void
+  confirmClose: () => void
 }
 
 declare global {

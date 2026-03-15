@@ -55,6 +55,7 @@ export function DMView(): React.JSX.Element {
   const dockVisibleRef = useRef(false)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [dockVisible, setDockVisible] = useState(false)
+  const [showCloseWarning, setShowCloseWarning] = useState(false)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
   const [showHelp, setShowHelp] = useState(false)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
@@ -124,6 +125,22 @@ export function DMView(): React.JSX.Element {
   useEffect(() => {
     if (!viewSheet && monsterReveal) setMonsterReveal(null)
   }, [viewSheet])
+
+  // Track isDirty in a ref so the close handler never has a stale value
+  const isDirtyRef = useRef(isDirty)
+  useEffect(() => { isDirtyRef.current = isDirty }, [isDirty])
+
+  // Intercept Electron window close — show warning if unsaved
+  useEffect(() => {
+    if (!window.api?.onCheckClose) return
+    return window.api.onCheckClose(() => {
+      if (isDirtyRef.current) {
+        setShowCloseWarning(true)
+      } else {
+        window.api.confirmClose()
+      }
+    })
+  }, [])
 
   // Sync edit fields when a different token is selected
   useEffect(() => {
@@ -767,6 +784,39 @@ export function DMView(): React.JSX.Element {
 
       {/* ── Battle panel (right side overlay) ── */}
       {showBattlePanel && <BattlePanel onClose={() => setShowBattlePanel(false)} />}
+
+      {showCloseWarning && (
+        <div className="dialog-overlay">
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="dialog-header">
+              <span>Unsaved Changes</span>
+            </div>
+            <div className="dialog-body">
+              <p style={{ fontSize: 13, color: 'var(--text)' }}>
+                You have unsaved changes. What would you like to do?
+              </p>
+            </div>
+            <div className="dialog-footer">
+              <button className="btn btn-secondary" onClick={() => setShowCloseWarning(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-danger" onClick={() => window.api.confirmClose()}>
+                Close without Saving
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  const result = await window.api.saveScene()
+                  if (result.success) window.api.confirmClose()
+                  else setShowCloseWarning(false)
+                }}
+              >
+                Save &amp; Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
