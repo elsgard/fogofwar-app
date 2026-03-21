@@ -1,4 +1,4 @@
-import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle, MonsterReveal, IdleEffects } from '../renderer/src/types'
+import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle, MonsterReveal, IdleEffects, MapScale } from '../renderer/src/types'
 import { applyFogOp } from '../shared/fogOps'
 
 const state: GameState = {
@@ -15,6 +15,7 @@ const state: GameState = {
   monsterReveal: null,
   idleMode: false,
   idleEffects: { smoke: true, glow: true, embers: true, lightning: true, pulse: true },
+  mapScale: null,
 }
 
 export function getState(): GameState {
@@ -96,6 +97,10 @@ export function setIdleMode(active: boolean, effects: IdleEffects): void {
   state.idleEffects = effects
 }
 
+export function setMapScale(scale: MapScale | null): void {
+  state.mapScale = scale
+}
+
 export function importParty(tokens: Token[]): void {
   state.tokens = [...state.tokens, ...tokens]
 }
@@ -110,4 +115,5 @@ export function loadSave(save: SaveFile): void {
   state.tokenLabelVisible = save.tokenLabelVisible
   state.playerViewport = save.playerViewport ?? null
   state.battle = save.battle ?? null
+  state.mapScale = save.mapScale ?? null
 }

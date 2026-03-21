@@ -6,6 +6,7 @@ import { MapLayer } from '../pixi/MapLayer'
 import { FogLayer } from '../pixi/FogLayer'
 import { TokenLayer } from '../pixi/TokenLayer'
 import { LaserLayer } from '../pixi/LaserLayer'
+import { MeasurementLayer } from '../pixi/MeasurementLayer'
 import { useGameStore } from '../store/gameStore'
 import type { FogOp, PlayerViewport } from '../types'
 
@@ -21,6 +22,8 @@ interface Props {
 
 export interface MapCanvasHandle {
   getCurrentViewport: () => PlayerViewport | null
+  startCalibration: () => void
+  cancelCalibration: () => void
 }
 
 export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
@@ -36,6 +39,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const fogLayerRef = useRef<FogLayer | null>(null)
   const tokenLayerRef = useRef<TokenLayer | null>(null)
   const laserLayerRef = useRef<LaserLayer | null>(null)
+  const measurementLayerRef = useRef<MeasurementLayer | null>(null)
 
   // Brush cursor — lives on app.stage (screen space, unaffected by pan/zoom)
   const brushCursorRef = useRef<Graphics | null>(null)
@@ -56,6 +60,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const contextualFogModeRef = useRef<'fog-reveal' | 'fog-hide' | null>(null)
   // Right-click laser — active regardless of the selected tool
   const isRightClickLasingRef = useRef(false)
+
+  // Measure tool state
+  const isMeasuringRef = useRef(false)
+  const measureStartRef = useRef<{ x: number; y: number } | null>(null)
+  // Calibration flow: 'picking-p1' → 'picking-p2' → null
+  const calibrationModeRef = useRef<'picking-p1' | 'picking-p2' | null>(null)
+  const calibrationP1Ref = useRef<{ x: number; y: number } | null>(null)
 
   // Track previous fogOps length to decide incremental vs full replay
   const prevFogOpsLenRef = useRef(0)
@@ -130,15 +141,17 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         // DM: tokens above fog (always visible)
         // Player: tokens below fog (hidden by unrevealed areas)
         // Laser is always on top of everything in both views
+        const measurementLayer = new MeasurementLayer()
         if (isPlayerView) {
           world.addChild(mapLayer, tokenLayer, fogLayer, laserLayer)
         } else {
-          world.addChild(mapLayer, fogLayer, tokenLayer, laserLayer)
+          world.addChild(mapLayer, fogLayer, tokenLayer, laserLayer, measurementLayer)
         }
         mapLayerRef.current = mapLayer
         fogLayerRef.current = fogLayer
         tokenLayerRef.current = tokenLayer
         laserLayerRef.current = laserLayer
+        measurementLayerRef.current = measurementLayer
 
         app.ticker.add(() => laserLayer.tick())
 
@@ -207,6 +220,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       fogLayerRef.current = null
       tokenLayerRef.current = null
       laserLayerRef.current = null
+      measurementLayerRef.current = null
       brushCursorRef.current = null
     }
   }, [isPlayerView])
@@ -382,7 +396,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     world.y = (availH - mapLayer.mapHeight * scale) / 2
   }, [SIDEBAR_W])
 
-  // ── Expose getCurrentViewport to parent (DM only) ─────────────────────────
+  // ── Expose handle methods to parent (DM only) ─────────────────────────────
   useImperativeHandle(ref, () => ({
     getCurrentViewport: () => {
       const world = worldRef.current
@@ -395,6 +409,16 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         y: (screenCY - world.y) / world.scale.y,
         scale: world.scale.x,
       }
+    },
+    startCalibration: () => {
+      calibrationModeRef.current = 'picking-p1'
+      calibrationP1Ref.current = null
+      measurementLayerRef.current?.clear()
+    },
+    cancelCalibration: () => {
+      calibrationModeRef.current = null
+      calibrationP1Ref.current = null
+      measurementLayerRef.current?.clear()
     },
   }), [SIDEBAR_W])
 
@@ -521,6 +545,17 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     return () => window.removeEventListener('keydown', handler)
   }, [isPickingAttackTarget])
 
+  // ── Clear measurement state when switching away from measure tool ─────────
+  useEffect(() => {
+    if (activeTool !== 'measure') {
+      measurementLayerRef.current?.clear()
+      isMeasuringRef.current = false
+      measureStartRef.current = null
+      calibrationModeRef.current = null
+      calibrationP1Ref.current = null
+    }
+  }, [activeTool])
+
   // ── Pointer event handlers ───────────────────────────────────────────────
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -591,6 +626,28 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         lastPaintPosRef.current = null
         strokeBufferRef.current = []
         paintAt(x, y, activeTool, brushRadius)
+        return
+      }
+
+      if (activeTool === 'measure') {
+        if (calibrationModeRef.current === 'picking-p1') {
+          calibrationP1Ref.current = { x, y }
+          calibrationModeRef.current = 'picking-p2'
+          measurementLayerRef.current?.drawCalibrationAnchor(x, y, worldRef.current?.scale.x ?? 1)
+          return
+        }
+        if (calibrationModeRef.current === 'picking-p2' && calibrationP1Ref.current) {
+          const p1 = calibrationP1Ref.current
+          useGameStore.getState().setCalibrationPoints(p1, { x, y })
+          calibrationModeRef.current = null
+          calibrationP1Ref.current = null
+          measurementLayerRef.current?.clear()
+          return
+        }
+        // Normal measurement drag
+        isMeasuringRef.current = true
+        measureStartRef.current = { x, y }
+        measurementLayerRef.current?.clear()
       }
     },
     [isPlayerView, activeTool, brushRadius, laserRadius, laserColor, toMapCoords, paintAt, setSelectedTokenId]
@@ -660,6 +717,25 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         const { x, y } = toMapCoords(e)
         tokenLayerRef.current?.setHoveredToken(tokenLayerRef.current.hitTest(x, y))
       }
+
+      // Calibration second-point preview
+      if (calibrationModeRef.current === 'picking-p2' && calibrationP1Ref.current) {
+        const { x, y } = toMapCoords(e)
+        const p1 = calibrationP1Ref.current
+        measurementLayerRef.current?.drawCalibrationPreview(p1.x, p1.y, x, y, worldRef.current?.scale.x ?? 1)
+        return
+      }
+
+      // Live measurement line while dragging
+      if (isMeasuringRef.current && measureStartRef.current && activeTool === 'measure') {
+        const { x, y } = toMapCoords(e)
+        const p1 = measureStartRef.current
+        const scale = useGameStore.getState().mapScale
+        const label = scale
+          ? calcDistance(p1.x, p1.y, x, y, scale.pixelsPerFoot)
+          : `${Math.round(Math.sqrt((x - p1.x) ** 2 + (y - p1.y) ** 2))} px (not calibrated)`
+        measurementLayerRef.current?.drawMeasure(p1.x, p1.y, x, y, label, worldRef.current?.scale.x ?? 1)
+      }
     },
     [isPlayerView, activeTool, brushRadius, tokenLabelVisible, tokenLabelHiddenTypes, laserRadius, laserColor, toMapCoords, paintAt, updateBrushCursor]
   )
@@ -707,8 +783,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         if (token) updateToken({ ...token, x, y })
         isDraggingTokenRef.current = null
       }
+
+      // Finalize measurement — line stays visible until next drag
+      if (activeTool === 'measure') {
+        isMeasuringRef.current = false
+      }
     },
-    [isPlayerView, toMapCoords, updateToken, commitStroke]
+    [isPlayerView, activeTool, toMapCoords, updateToken, commitStroke]
   )
 
   const onPointerLeave = useCallback(
@@ -776,6 +857,15 @@ function loadSnapshotIntoRef(
   })
 }
 
+function calcDistance(
+  x1: number, y1: number,
+  x2: number, y2: number,
+  pixelsPerFoot: number,
+): string {
+  const feet = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) / pixelsPerFoot
+  return `${feet.toFixed(1)} ft`
+}
+
 function getCursor(tool: string, isPlayerView: boolean): string {
   if (isPlayerView) return 'default'
   switch (tool) {
@@ -786,6 +876,8 @@ function getCursor(tool: string, isPlayerView: boolean): string {
       return 'grab'
     case 'token-move':
       return 'pointer'
+    case 'measure':
+      return 'crosshair'
     default:
       return 'default'
   }

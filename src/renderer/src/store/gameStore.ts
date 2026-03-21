@@ -1,10 +1,10 @@
 import { create } from 'zustand'
-import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal, IdleEffects } from '../types'
+import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal, IdleEffects, MapScale } from '../types'
 import type { MonsterEntry } from '../types/monster'
 
 interface GameStore extends GameState {
   // Local UI state
-  activeTool: 'select' | 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser'
+  activeTool: 'select' | 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser' | 'measure'
   brushRadius: number
   selectedTokenId: string | null
   laserRadius: number
@@ -30,6 +30,11 @@ interface GameStore extends GameState {
   monsters: MonsterEntry[] | null
   setMonsters: (monsters: MonsterEntry[] | null) => void
 
+  // Calibration handshake between MapCanvas and DMView (never broadcast)
+  calibrationPending: { p1: { x: number; y: number }; p2: { x: number; y: number } } | null
+  setCalibrationPoints: (p1: { x: number; y: number }, p2: { x: number; y: number }) => void
+  clearCalibrationPending: () => void
+
   // Local-only UI actions
   setIsPickingAttackTarget: (picking: boolean) => void
   setAttackPickedTokenId: (id: string | null) => void
@@ -46,6 +51,7 @@ interface GameStore extends GameState {
   setBattle: (battle: Battle | null) => void
   setMonsterReveal: (reveal: MonsterReveal | null) => void
   setIdleMode: (active: boolean, effects: IdleEffects) => void
+  setMapScale: (scale: MapScale | null) => void
 
   // Persistence
   isDirty: boolean
@@ -68,9 +74,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   monsterReveal: null,
   idleMode: false,
   idleEffects: { smoke: true, glow: true, embers: true, lightning: true, pulse: true },
+  mapScale: null,
 
   // DM-local state (not broadcast)
   monsters: null,
+  calibrationPending: null,
 
   // UI state
   activeTool: 'select',
@@ -119,6 +127,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       monsterReveal: state.monsterReveal ?? null,
       idleMode: state.idleMode ?? false,
       idleEffects: state.idleEffects ?? { smoke: true, glow: true, embers: true, lightning: true, pulse: true },
+      mapScale: state.mapScale ?? null,
   })),
 
   loadMap: async () => {
@@ -195,6 +204,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setMonsters: (monsters) => set({ monsters }),
+  setCalibrationPoints: (p1, p2) => set({ calibrationPending: { p1, p2 } }),
+  clearCalibrationPending: () => set({ calibrationPending: null }),
   setIsPickingAttackTarget: (picking) => set({ isPickingAttackTarget: picking }),
   setAttackPickedTokenId: (id) => set({ attackPickedTokenId: id }),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -229,6 +240,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setIdleMode: (active, effects) => {
     window.api?.setIdleMode(active, effects)
     set({ idleMode: active, idleEffects: effects })
+  },
+  setMapScale: (scale) => {
+    window.api?.setMapScale(scale)
+    set({ mapScale: scale, isDirty: true })
   },
   setPlayerViewport: (vp) => {
     window.api?.setPlayerViewport(vp)

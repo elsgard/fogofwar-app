@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, GameState, MapInfo, SaveFile, PartyFile, PlayerViewport, Battle } from '../renderer/src/types'
+import type { FogOp, GameState, MapInfo, SaveFile, PartyFile, PlayerViewport, Battle, MapScale } from '../renderer/src/types'
 import * as gs from './gameState'
 import { isVersionCompatible } from '../shared/version'
 import { applyDebugState } from './debugState'
@@ -417,6 +417,7 @@ app.whenReady().then(() => {
       tokenLabelVisible: state.tokenLabelVisible,
       playerViewport: state.playerViewport,
       battle: state.battle,
+      mapScale: state.mapScale ?? null,
     }
     await writeFile(filePath, JSON.stringify(save), 'utf-8')
     return { success: true }
@@ -480,6 +481,11 @@ app.whenReady().then(() => {
 
   ipcMain.on(IPC.SET_IDLE_MODE, (_, { active, effects }) => {
     gs.setIdleMode(active, effects)
+    broadcastState()
+  })
+
+  ipcMain.on(IPC.SET_MAP_SCALE, (_, scale: MapScale | null) => {
+    gs.setMapScale(scale)
     broadcastState()
   })
 

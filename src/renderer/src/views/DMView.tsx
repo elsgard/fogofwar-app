@@ -34,15 +34,16 @@ const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
   enemy: '#e53935',
 }
 
-const TOOL_CYCLE = ['select', 'fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser'] as const
+const TOOL_CYCLE = ['select', 'fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser', 'measure'] as const
 
 const DOCK_TOOLS = [
-  { id: 'select',     label: 'Select', icon: '⊹', key: 'V' },
-  { id: 'fog-reveal', label: 'Reveal', icon: '◐', key: 'R' },
-  { id: 'fog-hide',   label: 'Hide',   icon: '◑', key: 'H' },
-  { id: 'token-move', label: 'Move',   icon: '✥', key: 'T' },
-  { id: 'pan',        label: 'Pan',    icon: '⤢', key: 'P' },
-  { id: 'laser',      label: 'Laser',  icon: '✦', key: 'L' },
+  { id: 'select',     label: 'Select',  icon: '⊹', key: 'V' },
+  { id: 'fog-reveal', label: 'Reveal',  icon: '◐', key: 'R' },
+  { id: 'fog-hide',   label: 'Hide',    icon: '◑', key: 'H' },
+  { id: 'token-move', label: 'Move',    icon: '✥', key: 'T' },
+  { id: 'pan',        label: 'Pan',     icon: '⤢', key: 'P' },
+  { id: 'laser',      label: 'Laser',   icon: '✦', key: 'L' },
+  { id: 'measure',    label: 'Measure', icon: '⟺', key: 'M' },
 ] as const
 
 const LASER_COLORS = ['#ff2222', '#ff9800', '#ffeb3b', '#4caf50', '#4a9eff', '#ffffff']
@@ -105,7 +106,14 @@ export function DMView(): React.JSX.Element {
     idleMode,
     idleEffects,
     setIdleMode,
+    mapScale,
+    setMapScale,
+    calibrationPending,
+    clearCalibrationPending,
   } = useGameStore()
+
+  // Calibration dialog state
+  const [calibrationFeetInput, setCalibrationFeetInput] = useState('1')
 
   const [newTokenLabel, setNewTokenLabel] = useState('')
   const [newTokenType, setNewTokenType] = useState<Token['type']>('player')
@@ -146,6 +154,26 @@ export function DMView(): React.JSX.Element {
     })
   }, [])
 
+  // Show calibration dialog when canvas signals both points have been picked
+  useEffect(() => {
+    if (calibrationPending) setCalibrationFeetInput('1')
+  }, [calibrationPending])
+
+  function handleCalibrationConfirm(): void {
+    if (!calibrationPending) return
+    const feet = parseFloat(calibrationFeetInput)
+    if (isNaN(feet) || feet <= 0) return
+    const { p1, p2 } = calibrationPending
+    const pixelDist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
+    setMapScale({ pixelsPerFoot: pixelDist / feet })
+    clearCalibrationPending()
+  }
+
+  function handleCalibrationCancel(): void {
+    clearCalibrationPending()
+    mapCanvasRef.current?.cancelCalibration()
+  }
+
   // Sync edit fields when a different token is selected
   useEffect(() => {
     if (!selectedToken) return
@@ -170,6 +198,7 @@ export function DMView(): React.JSX.Element {
         case 't': setActiveTool('token-move'); break
         case 'p': setActiveTool('pan'); break
         case 'l': setActiveTool('laser'); break
+        case 'm': setActiveTool('measure'); break
         case 'tab': {
           e.preventDefault()
           const idx = TOOL_CYCLE.indexOf(activeTool as typeof TOOL_CYCLE[number])
@@ -423,6 +452,13 @@ export function DMView(): React.JSX.Element {
               </button>
               {map && (
                 <>
+                  <div className="menu-dropdown-divider" />
+                  <button
+                    className="menu-dropdown-item"
+                    onClick={() => { mapCanvasRef.current?.startCalibration(); setActiveTool('measure'); setOpenMenu(null) }}
+                  >
+                    {mapScale ? 'Re-calibrate Scale…' : 'Set Map Scale…'}
+                  </button>
                   <div className="menu-dropdown-divider" />
                   <span className="menu-dropdown-label">{map.name}</span>
                 </>
@@ -868,6 +904,43 @@ export function DMView(): React.JSX.Element {
         </div>
       )}
 
+      {calibrationPending && (
+        <div className="dialog-overlay">
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="dialog-header">
+              <span>Set Map Scale</span>
+            </div>
+            <div className="dialog-body">
+              <p style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>
+                How many feet does the selected distance represent?
+              </p>
+              <input
+                type="number"
+                min={0.1}
+                step={0.5}
+                value={calibrationFeetInput}
+                onChange={(e) => setCalibrationFeetInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCalibrationConfirm() }}
+                autoFocus
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="dialog-footer">
+              <button className="btn btn-secondary" onClick={handleCalibrationCancel}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleCalibrationConfirm}
+                disabled={!calibrationFeetInput || parseFloat(calibrationFeetInput) <= 0}
+              >
+                Set Scale
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
       {showExportPartyDialog && (
@@ -914,7 +987,7 @@ export function DMView(): React.JSX.Element {
         <div ref={dockRef} className={`tool-dock ${dockVisible ? 'tool-dock-visible' : ''}`}>
           {DOCK_TOOLS.map((tool) => (
             <div key={tool.id} className="dock-slot">
-              {activeTool === tool.id && (tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide' || tool.id === 'laser') && (
+              {activeTool === tool.id && (tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide' || tool.id === 'laser' || tool.id === 'measure') && (
                 <div className="dock-popover">
                   {(tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide') && (
                     <>
@@ -970,6 +1043,35 @@ export function DMView(): React.JSX.Element {
                         </label>
                       </div>
                     </>
+                  )}
+                  {tool.id === 'measure' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 0' }}>
+                      {mapScale ? (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          Scale: {mapScale.pixelsPerFoot.toFixed(1)} px/ft
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          No scale set
+                        </div>
+                      )}
+                      <button
+                        className="btn btn-secondary"
+                        style={{ fontSize: 12 }}
+                        onClick={() => mapCanvasRef.current?.startCalibration()}
+                      >
+                        {mapScale ? 'Re-calibrate…' : 'Set Scale…'}
+                      </button>
+                      {mapScale && (
+                        <button
+                          className="btn btn-danger"
+                          style={{ fontSize: 12 }}
+                          onClick={() => setMapScale(null)}
+                        >
+                          Clear Scale
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

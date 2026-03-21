@@ -112,6 +112,10 @@ export interface IdleEffects {
   pulse: boolean
 }
 
+export interface MapScale {
+  pixelsPerFoot: number
+}
+
 export interface GameState {
   map: MapInfo | null
   fogOps: FogOp[]
@@ -126,6 +130,7 @@ export interface GameState {
   monsterReveal: MonsterReveal | null
   idleMode: boolean
   idleEffects: IdleEffects
+  mapScale: MapScale | null
 }
 
 export interface PartyFile {
@@ -146,6 +151,7 @@ export interface SaveFile {
   tokenLabelVisible: boolean
   playerViewport: PlayerViewport | null
   battle: Battle | null
+  mapScale?: MapScale | null // optional: absent in older saves → treated as null
 }
 
 // IPC channel names as a const object to share between main and preload
@@ -178,4 +184,5 @@ export const IPC = {
   SET_TOKEN_LABEL_HIDDEN_TYPES: 'game:set-token-label-hidden-types',
   APP_CHECK_CLOSE: 'app:check-close',
   APP_CONFIRM_CLOSE: 'app:confirm-close',
+  SET_MAP_SCALE: 'game:set-map-scale',
 } as const

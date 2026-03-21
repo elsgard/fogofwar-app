@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType, IdleEffects } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType, IdleEffects, MapScale } from '../renderer/src/types'
 
 const api = {
   getState: (): Promise<GameState> => ipcRenderer.invoke(IPC.GET_STATE),
@@ -79,6 +79,8 @@ const api = {
   },
 
   confirmClose: (): void => ipcRenderer.send(IPC.APP_CONFIRM_CLOSE),
+
+  setMapScale: (scale: MapScale | null): void => ipcRenderer.send(IPC.SET_MAP_SCALE, scale),
 }
 
 if (process.contextIsolated) {
