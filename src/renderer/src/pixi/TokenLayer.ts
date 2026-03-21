@@ -1,5 +1,5 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js'
-import type { Token, TokenStatus } from '../types'
+import type { Token, TokenSize, TokenStatus } from '../types'
 
 const DEFAULT_TOKEN_RADIUS = 20
 const DEFAULT_LABEL_SIZE = 14
@@ -8,6 +8,15 @@ const TYPE_COLORS: Record<Token['type'], number> = {
   player: 0x4a9eff,
   npc: 0x4caf50,
   enemy: 0xe53935,
+}
+
+const SIZE_MULTIPLIERS: Record<TokenSize, number> = {
+  tiny:       0.4,
+  small:      0.75,
+  medium:     1.0,
+  large:      2.0,
+  huge:       3.0,
+  gargantuan: 4.0,
 }
 
 interface TokenSprite {
@@ -21,6 +30,7 @@ interface TokenSprite {
   color: number
   status: TokenStatus
   type: Token['type']
+  size: TokenSize
 }
 
 const SELECTION_COLOR = 0x00e676
@@ -57,6 +67,10 @@ export class TokenLayer extends Container {
     })
   }
 
+  private effectiveRadius(size: TokenSize): number {
+    return this.radius * SIZE_MULTIPLIERS[size]
+  }
+
   setPlayerView(value: boolean): void {
     this.isPlayerView = value
   }
@@ -68,7 +82,7 @@ export class TokenLayer extends Container {
       this.drawCircle(sprite)
       this.drawTurnOutline(sprite, id === this.activeTurnId)
       this.drawOutline(sprite, id === this.selectedId)
-      sprite.label.y = -(r + 10)
+      sprite.label.y = -(this.effectiveRadius(sprite.size) + 10)
     }
   }
 
@@ -89,7 +103,7 @@ export class TokenLayer extends Container {
   private drawTurnOutline(sprite: TokenSprite, active: boolean): void {
     sprite.turnOutline.clear()
     if (active) {
-      const r = this.radius + TURN_WIDTH + 1 + SELECTION_WIDTH + 2
+      const r = this.effectiveRadius(sprite.size) + TURN_WIDTH + 1 + SELECTION_WIDTH + 2
       sprite.turnOutline.circle(0, 0, r).stroke({ color: TURN_COLOR, width: TURN_WIDTH })
     }
   }
@@ -111,7 +125,7 @@ export class TokenLayer extends Container {
   private drawOutline(sprite: TokenSprite, selected: boolean): void {
     sprite.outline.clear()
     if (selected) {
-      const r = this.radius + SELECTION_WIDTH + 1
+      const r = this.effectiveRadius(sprite.size) + SELECTION_WIDTH + 1
       sprite.outline.circle(0, 0, r).stroke({ color: SELECTION_COLOR, width: SELECTION_WIDTH })
     }
   }
@@ -153,7 +167,7 @@ export class TokenLayer extends Container {
   /** Redraws the circle and status indicator for a sprite. */
   private drawCircle(sprite: TokenSprite): void {
     const { circle, statusGraphic, color, status } = sprite
-    const r = this.radius
+    const r = this.effectiveRadius(sprite.size)
 
     circle.clear()
     if (status === 'dead') {
@@ -223,23 +237,24 @@ export class TokenLayer extends Container {
 
     const color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
     const status: TokenStatus = token.status ?? 'alive'
+    const size: TokenSize = token.size ?? 'medium'
 
     const turnOutline = new Graphics()
     const outline = new Graphics()
     const circle = new Graphics()
     const statusGraphic = new Graphics()
-    const statusLabel = new Text({ text: '⚠', style: new TextStyle({ fontSize: this.radius * 1.4, fill: 0xf59e0b }) })
+    const statusLabel = new Text({ text: '⚠', style: new TextStyle({ fontSize: this.effectiveRadius(size) * 1.4, fill: 0xf59e0b }) })
     statusLabel.anchor.set(0.5, 0.5)
     statusLabel.visible = false
     const label = new Text({ text: token.label, style: this.makeLabelStyle() })
     label.anchor.set(0.5, 0.5)
-    label.y = -(this.radius + 10)
+    label.y = -(this.effectiveRadius(size) + 10)
     label.visible = (this.labelsVisible && !this.labelHiddenTypes[token.type]) || token.id === this.hoveredId
 
     container.addChild(turnOutline, outline, circle, statusGraphic, statusLabel, label)
     this.addChild(container)
 
-    const sprite: TokenSprite = { container, turnOutline, outline, circle, statusGraphic, statusLabel, label, color, status, type: token.type }
+    const sprite: TokenSprite = { container, turnOutline, outline, circle, statusGraphic, statusLabel, label, color, status, type: token.type, size }
     this.sprites.set(token.id, sprite)
     this.drawCircle(sprite)
     this.drawTurnOutline(sprite, token.id === this.activeTurnId)
@@ -252,8 +267,10 @@ export class TokenLayer extends Container {
     sprite.container.y = token.y
     sprite.color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
     sprite.status = token.status ?? 'alive'
+    sprite.size = token.size ?? 'medium'
     this.drawCircle(sprite)
     sprite.label.text = token.label
+    sprite.label.y = -(this.effectiveRadius(sprite.size) + 10)
   }
 
   /** Move a token sprite immediately (during drag, before state sync) */
@@ -270,7 +287,7 @@ export class TokenLayer extends Container {
     for (const [id, sprite] of this.sprites) {
       const dx = x - sprite.container.x
       const dy = y - sprite.container.y
-      if (Math.sqrt(dx * dx + dy * dy) <= this.radius) return id
+      if (Math.sqrt(dx * dx + dy * dy) <= this.effectiveRadius(sprite.size)) return id
     }
     return null
   }

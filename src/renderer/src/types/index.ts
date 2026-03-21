@@ -4,6 +4,7 @@ export type { MonsterSheet }
 
 export type TokenType = 'player' | 'npc' | 'enemy'
 export type TokenStatus = 'alive' | 'dsa' | 'dead'
+export type TokenSize = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan'
 
 export interface Token {
   id: string
@@ -14,6 +15,7 @@ export interface Token {
   color: string
   visibleToPlayers: boolean
   status?: TokenStatus // optional — undefined means 'alive' (backward compatible)
+  size?: TokenSize     // optional — undefined means 'medium' (backward compatible)
   hp?: number | null
   hpMax?: number | null
   ac?: number | null

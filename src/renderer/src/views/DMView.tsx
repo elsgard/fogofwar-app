@@ -7,7 +7,7 @@ import { ExportPartyDialog } from '../components/ExportPartyDialog'
 import { MonsterSearchModal } from '../components/MonsterSearchModal'
 import { CharacterSheetModal } from '../components/CharacterSheetModal'
 import { useGameStore } from '../store/gameStore'
-import type { Token, TokenStatus, MonsterSheet } from '../types'
+import type { Token, TokenSize, TokenStatus, MonsterSheet } from '../types'
 import type { MonsterEntry } from '../types/monster'
 import { entryToSheet } from '../types/monster'
 
@@ -118,6 +118,7 @@ export function DMView(): React.JSX.Element {
   const [newTokenLabel, setNewTokenLabel] = useState('')
   const [newTokenType, setNewTokenType] = useState<Token['type']>('player')
   const [newTokenColor, setNewTokenColor] = useState(TYPE_DEFAULT_COLORS.player)
+  const [newTokenSize, setNewTokenSize] = useState<TokenSize>('medium')
   const [newTokenHp, setNewTokenHp] = useState('')
   const [newTokenHpMax, setNewTokenHpMax] = useState('')
   const [newTokenAc, setNewTokenAc] = useState('')
@@ -129,6 +130,7 @@ export function DMView(): React.JSX.Element {
   const [editLabel, setEditLabel] = useState('')
   const [editType, setEditType] = useState<Token['type']>('player')
   const [editColor, setEditColor] = useState(TYPE_DEFAULT_COLORS.player)
+  const [editSize, setEditSize] = useState<TokenSize>('medium')
   const [editHp, setEditHp] = useState('')
   const [editHpMax, setEditHpMax] = useState('')
   const [editAc, setEditAc] = useState('')
@@ -180,6 +182,7 @@ export function DMView(): React.JSX.Element {
     setEditLabel(selectedToken.label)
     setEditType(selectedToken.type)
     setEditColor(selectedToken.color)
+    setEditSize(selectedToken.size ?? 'medium')
     setEditHp(selectedToken.hp != null ? String(selectedToken.hp) : '')
     setEditHpMax(selectedToken.hpMax != null ? String(selectedToken.hpMax) : '')
     setEditAc(selectedToken.ac != null ? String(selectedToken.ac) : '')
@@ -302,6 +305,7 @@ export function DMView(): React.JSX.Element {
     setNewTokenAc(entry.ac != null ? String(entry.ac) : '')
     setNewTokenType('enemy')
     setNewTokenColor(TYPE_DEFAULT_COLORS.enemy)
+    setNewTokenSize((entry.size as TokenSize) ?? 'medium')
     setPendingMonsterEntry(entry)
   }
 
@@ -311,6 +315,7 @@ export function DMView(): React.JSX.Element {
       type: newTokenType,
       label: newTokenLabel.trim(),
       color: newTokenColor,
+      size: newTokenSize,
       x: map.width / 2,
       y: map.height / 2,
       visibleToPlayers: true,
@@ -320,6 +325,7 @@ export function DMView(): React.JSX.Element {
       monsterSheet: pendingMonsterEntry ? entryToSheet(pendingMonsterEntry) : null,
     })
     setNewTokenLabel('')
+    setNewTokenSize('medium')
     setNewTokenHp('')
     setNewTokenHpMax('')
     setNewTokenAc('')
@@ -674,6 +680,23 @@ export function DMView(): React.JSX.Element {
                       </label>
                     ))}
                   </div>
+                  <div className="token-type-radios">
+                    {(['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'] as TokenSize[]).map((s) => (
+                      <label
+                        key={s}
+                        className={`token-type-radio ${newTokenSize === s ? 'token-type-active' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="token-size"
+                          value={s}
+                          checked={newTokenSize === s}
+                          onChange={() => setNewTokenSize(s)}
+                        />
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                      </label>
+                    ))}
+                  </div>
                   <div className="color-swatches">
                     {TOKEN_COLORS.map((c) => (
                       <button
@@ -819,6 +842,23 @@ export function DMView(): React.JSX.Element {
                       onChange={() => { setEditType(type); updateToken({ ...selectedToken, type }) }}
                     />
                     {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </label>
+                ))}
+              </div>
+              <div className="token-type-radios">
+                {(['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'] as TokenSize[]).map((s) => (
+                  <label
+                    key={s}
+                    className={`token-type-radio ${editSize === s ? 'token-type-active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="edit-token-size"
+                      value={s}
+                      checked={editSize === s}
+                      onChange={() => { setEditSize(s); updateToken({ ...selectedToken, size: s }) }}
+                    />
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
                   </label>
                 ))}
               </div>
