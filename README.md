@@ -10,11 +10,15 @@ Built with Electron, React, TypeScript, and PixiJS v8 for WebGL rendering.
 
 - **Load any map image** (PNG, JPEG, etc.) via native file dialog
 - **Fog of war** painted over the map — reveal or re-hide areas with a brush (feathered edges); automatic fog compaction keeps performance bounded over long sessions
-- **Brush preview cursor** — green ring for reveal, red ring for hide
+- **Brush preview cursor** — green ring for reveal, red ring for hide; hold Ctrl (or Shift on Smart Select) and scroll to resize the brush on the fly
 - **Tokens** — place players, NPCs, and enemies on the map; toggle visibility and status (alive / DSA / dead) per token
+- **Token avatars** — assign a solid color, a D&D-themed emoji, or a custom uploaded image (auto-scaled to 256 px) to each token via a tabbed picker
+- **Token D&D size** — per-token size (Tiny / Small / Medium / Large / Huge / Gargantuan) scales the token on the map grid
 - **Token settings** — global size, label size, and label visibility sliders synced to all views; per-type label visibility (hide player / NPC / enemy labels independently)
 - **Selected token highlight** — green outline on the active token in DM view
 - **Smart Select tool** — default tool that adapts to context: drag a token to move it, drag empty map to pan, Ctrl+drag to reveal fog, Shift+drag to hide fog
+- **Area effects** — draw named circles or rectangles on the map (spell areas, hazards, etc.); toggle player visibility per effect; listed in a collapsible sidebar section
+- **Distance measurement** — drag on the map to measure in feet; calibrate via Map → Set Map Scale… by clicking two known points
 - **Laser pointer** — right-click and drag anywhere (regardless of active tool) to show a glowing dot with a fading trail to players; configurable color and size via the Laser tool; synced to all player views in real time
 - **Pan & zoom** — scroll wheel to zoom, Pan tool or Smart Select to navigate large maps
 - **Player viewport push** — DM can lock the player view to their current pan/zoom, or reset it to auto-fit
@@ -22,10 +26,11 @@ Built with Electron, React, TypeScript, and PixiJS v8 for WebGL rendering.
 - **Browser player** — open `localhost:7654?role=player` in any browser; updates via SSE
 - **Save / Load** — scene saved to `.fowsave` (JSON + base64 image, versioned)
 - **Menu bar** — Session / Map / Player drop-down menus; hover to switch, click background to close
-- **Keyboard shortcuts** — `V` smart select, `R` reveal, `H` hide, `T` move token, `P` pan, `L` laser; `Tab` cycles tools
+- **Keyboard shortcuts** — `V` smart select, `R` reveal, `H` hide, `T` move token, `P` pan, `L` laser, `M` measure, `E` area effects; `Tab` cycles tools
+- **Collapsible sidebar** — Token List and Area Effects sections collapse independently; the entire sidebar slides away via a tab on its edge, keeping the canvas unobstructed
 - **Monster database** — load a local D&D 5e monster JSON file; search by name to auto-fill token stats; view full character sheet (stat block + abilities + traits/actions) from the token editor or battle tracker
 - **Monster reveal** — DM sends a monster portrait to the player view from the character sheet; slides in from the right with the creature name; DM can dismiss it at any time
-- **Battle tracker** — initiative order with automatic tie-breaking; per-combatant HP / AC tracking; turn cycling with round counter; effects / conditions with round-duration countdowns; attack actions with roll logging; full battle log; links combatants to map tokens; party export / import (`.fowparty`)
+- **Battle tracker** — initiative order with automatic tie-breaking; per-combatant HP / AC tracking; turn cycling with round counter; effects / conditions with round-duration countdowns; attack actions with roll logging; full battle log; links combatants to map tokens; party export / import (`.fowparty`); panel slides in from the right and can be hidden via its edge tab without closing
 - **Idle screen** — DM can activate a cinematic waiting screen for players (🌑 Idle button in menu bar) at any time, even while a map is loaded; features a rock texture background, vignette, procedural rising smoke, dying-fire embers, flickering glow, and random lightning flashes; after one minute cycles through D&D jokes; each effect is individually toggleable via a popover
 
 ---

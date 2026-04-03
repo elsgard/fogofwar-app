@@ -11,6 +11,8 @@ const TOOL_ROWS: { key: string; tool: string; description: string }[] = [
   { key: 'T', tool: 'Move Token',    description: 'Drag any token to reposition it' },
   { key: 'P', tool: 'Pan / Zoom',    description: 'Click-drag to pan the map; scroll to zoom' },
   { key: 'L', tool: 'Laser Pointer', description: 'Draw a temporary glowing trail visible on the player screen' },
+  { key: 'M', tool: 'Measure',       description: 'Click-drag to measure distance; calibrate scale with the Set Scale button first' },
+  { key: 'E', tool: 'Area Effects',  description: 'Draw circles or rectangles on the map — name them and toggle player visibility per effect' },
   { key: 'Tab',         tool: 'Cycle Tools',   description: 'Step through all tools in order' },
   { key: 'Right-click', tool: 'Laser (quick)', description: 'Activate laser pointer regardless of the active tool' },
 ]
@@ -61,6 +63,7 @@ export function HelpModal({ onClose }: Props): React.JSX.Element {
             <h4 style={sectionHeading}>Fog of War</h4>
             <ul style={list}>
               <li>Select <strong>Reveal</strong> or <strong>Hide</strong> — a settings popover appears above the dock button with a <strong>Brush size</strong> slider.</li>
+              <li>Hold <kbd>Ctrl</kbd> (or <kbd>Shift</kbd> on Smart Select) and <strong>scroll</strong> to resize the brush without touching the slider.</li>
               <li><strong>Reveal All</strong> clears all fog instantly. <strong>Reset Fog</strong> covers the entire map again. Both are in the popover for their respective tools.</li>
               <li>Fog is rendered at full opacity for players; at 50% on the DM screen so you can see what's underneath.</li>
             </ul>
@@ -73,8 +76,30 @@ export function HelpModal({ onClose }: Props): React.JSX.Element {
               <li>Add tokens from the <strong>sidebar → Add Token</strong>. They appear at the centre of the map — drag them into position.</li>
               <li>Click a token in the list to <strong>select</strong> it and open the Edit panel. Click it again or press ✕ to deselect.</li>
               <li><strong>Hover</strong> a token row to reveal action buttons: cycle status (♥ / ⚠ / ☠), toggle player visibility (👁 / 🚫), duplicate (❐), view sheet (📋), delete (✕).</li>
+              <li>Set a token's <strong>avatar</strong> in the Edit panel — choose a solid <strong>Color</strong>, pick an <strong>Emoji</strong> (D&amp;D-themed), or upload a custom <strong>Image</strong> (auto-scaled to 256 px).</li>
+              <li>Set the token's <strong>D&amp;D size</strong> (Tiny → Gargantuan) to scale it correctly to the map grid.</li>
               <li>Tokens with a monster sheet attached show a <strong>📋</strong> button that opens the full stat block.</li>
               <li>Load a <strong>Monster DB</strong> (Session menu) to search and auto-fill token stats via the <strong>🔍 Monster</strong> button. A compatible SRD dataset is available at <a href="https://gist.github.com/efortner/9b5a363df46d34d568c42b833344ba85" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>this GitHub Gist</a>.</li>
+            </ul>
+          </section>
+
+          {/* Area Effects */}
+          <section>
+            <h4 style={sectionHeading}>Area Effects</h4>
+            <ul style={list}>
+              <li>Select the <strong>Effects</strong> tool (<kbd>E</kbd>) and drag on the map to draw a <strong>circle</strong> or <strong>rectangle</strong>.</li>
+              <li>Name each effect and pick a colour in the dock popover. Effects appear in the sidebar list.</li>
+              <li>Toggle <strong>player visibility</strong> (👁 / 🚫) per effect — useful for hidden traps or DM-only annotations.</li>
+              <li>Click an effect in the sidebar to select it on the map; click ✕ to remove it.</li>
+            </ul>
+          </section>
+
+          {/* Measure */}
+          <section>
+            <h4 style={sectionHeading}>Distance Measurement</h4>
+            <ul style={list}>
+              <li>Select the <strong>Measure</strong> tool (<kbd>M</kbd>) and drag on the map to see distance in feet.</li>
+              <li>Use <strong>Map → Set Map Scale…</strong> to calibrate pixels-per-foot by clicking two known points on the map.</li>
             </ul>
           </section>
 
@@ -82,7 +107,8 @@ export function HelpModal({ onClose }: Props): React.JSX.Element {
           <section>
             <h4 style={sectionHeading}>Battle Tracker</h4>
             <ul style={list}>
-              <li>Open the tracker with the <strong>Battle</strong> button in the menu bar.</li>
+              <li>Open the tracker with the <strong>Battle</strong> button in the menu bar — it slides in from the right.</li>
+              <li>Click the <strong>arrow tab</strong> on the panel edge to slide it away without closing it; click again to bring it back.</li>
               <li>Add combatants, set initiative, and use <strong>Next Turn</strong> to advance. The active combatant is highlighted on the map.</li>
               <li>Effects and conditions track their remaining rounds automatically.</li>
               <li>Use the <strong>⚔</strong> button to log an attack with target and damage.</li>
