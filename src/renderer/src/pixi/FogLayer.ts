@@ -15,6 +15,7 @@ export class FogLayer extends Container {
   private renderer: Renderer | null = null
   // Gradient textures cached by radius so we don't rebuild them every frame
   private featherCache = new Map<number, Texture>()
+  private squareFeatherCache = new Map<number, Texture>()
 
   fogAlpha = 0.92
 
@@ -136,12 +137,87 @@ export class FogLayer extends Container {
     return texture
   }
 
+  /**
+   * Returns a white square-gradient texture for the given radius (half-side).
+   * The inner ~65% of each axis is fully opaque; edges fade to transparent.
+   * Corners use radial gradients so they taper naturally.
+   * Cached per radius.
+   */
+  private getSquareFeatherTexture(radius: number): Texture {
+    const cached = this.squareFeatherCache.get(radius)
+    if (cached) return cached
+
+    const diameter = Math.ceil(radius * 2)
+    const fw = Math.ceil(radius * 0.35) // feather width from each edge
+    const canvas = document.createElement('canvas')
+    canvas.width = diameter
+    canvas.height = diameter
+    const ctx = canvas.getContext('2d')!
+
+    // Solid center square
+    ctx.fillStyle = 'white'
+    ctx.fillRect(fw, fw, diameter - fw * 2, diameter - fw * 2)
+
+    // Left edge gradient
+    const left = ctx.createLinearGradient(0, 0, fw, 0)
+    left.addColorStop(0, 'rgba(255,255,255,0)')
+    left.addColorStop(1, 'rgba(255,255,255,1)')
+    ctx.fillStyle = left
+    ctx.fillRect(0, fw, fw, diameter - fw * 2)
+
+    // Right edge gradient
+    const right = ctx.createLinearGradient(diameter - fw, 0, diameter, 0)
+    right.addColorStop(0, 'rgba(255,255,255,1)')
+    right.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = right
+    ctx.fillRect(diameter - fw, fw, fw, diameter - fw * 2)
+
+    // Top edge gradient
+    const top = ctx.createLinearGradient(0, 0, 0, fw)
+    top.addColorStop(0, 'rgba(255,255,255,0)')
+    top.addColorStop(1, 'rgba(255,255,255,1)')
+    ctx.fillStyle = top
+    ctx.fillRect(fw, 0, diameter - fw * 2, fw)
+
+    // Bottom edge gradient
+    const bottom = ctx.createLinearGradient(0, diameter - fw, 0, diameter)
+    bottom.addColorStop(0, 'rgba(255,255,255,1)')
+    bottom.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = bottom
+    ctx.fillRect(fw, diameter - fw, diameter - fw * 2, fw)
+
+    // Corners: radial gradients anchored at each inner corner
+    const corners: [number, number, number, number][] = [
+      [0, 0, fw, fw],                              // top-left: fill rect, center at (fw, fw)
+      [diameter - fw, 0, diameter, fw],             // top-right: center at (diameter-fw, fw)
+      [0, diameter - fw, fw, diameter],             // bottom-left: center at (fw, diameter-fw)
+      [diameter - fw, diameter - fw, diameter, diameter], // bottom-right
+    ]
+    const centers: [number, number][] = [
+      [fw, fw], [diameter - fw, fw], [fw, diameter - fw], [diameter - fw, diameter - fw],
+    ]
+    for (let i = 0; i < 4; i++) {
+      const [x0, y0, x1, y1] = corners[i]
+      const [cx, cy] = centers[i]
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, fw)
+      grad.addColorStop(0, 'rgba(255,255,255,1)')
+      grad.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = grad
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
+    }
+
+    const texture = Texture.from(canvas)
+    this.squareFeatherCache.set(radius, texture)
+    return texture
+  }
+
   private drawOp(op: FogOp): void {
     if (!this.fogTexture || !this.renderer) return
 
-    if (op.type === 'hide-circle') {
-      // Draw a black radial gradient back onto the fog texture (re-fogs with soft edge).
-      const texture = this.getFeatherTexture(op.radius)
+    if (op.type === 'hide-circle' || op.type === 'hide-square') {
+      const texture = op.type === 'hide-square'
+        ? this.getSquareFeatherTexture(op.radius)
+        : this.getFeatherTexture(op.radius)
       const sprite = new Sprite(texture)
       sprite.tint = 0x000000
       sprite.anchor.set(0.5)
@@ -156,8 +232,10 @@ export class FogLayer extends Container {
     // container is a non-root child in the render call — setting it on the root
     // container passed to renderer.render() is ignored. We wrap it in a plain
     // root container so the erase group is processed as a layer group.
-    if (op.type === 'reveal-circle') {
-      const texture = this.getFeatherTexture(op.radius)
+    if (op.type === 'reveal-circle' || op.type === 'reveal-square') {
+      const texture = op.type === 'reveal-square'
+        ? this.getSquareFeatherTexture(op.radius)
+        : this.getFeatherTexture(op.radius)
       const sprite = new Sprite(texture)
       sprite.anchor.set(0.5)
       sprite.position.set(op.x, op.y)
@@ -201,6 +279,8 @@ export class FogLayer extends Container {
     }
     for (const tex of this.featherCache.values()) tex.destroy(true)
     this.featherCache.clear()
+    for (const tex of this.squareFeatherCache.values()) tex.destroy(true)
+    this.squareFeatherCache.clear()
     this.renderer = null
   }
 

@@ -26,6 +26,8 @@ export interface Token {
 export type FogOp =
   | { type: 'reveal-circle'; x: number; y: number; radius: number }
   | { type: 'hide-circle'; x: number; y: number; radius: number }
+  | { type: 'reveal-square'; x: number; y: number; radius: number }
+  | { type: 'hide-square'; x: number; y: number; radius: number }
   | { type: 'reveal-polygon'; points: number[] } // flat [x0,y0, x1,y1, ...]
   | { type: 'reset' }
   | { type: 'reveal-all' }

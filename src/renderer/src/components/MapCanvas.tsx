@@ -79,6 +79,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const tokens = useGameStore((s) => s.tokens)
   const activeTool = useGameStore((s) => s.activeTool)
   const brushRadius = useGameStore((s) => s.brushRadius)
+  const brushShape = useGameStore((s) => s.brushShape)
   const tokenRadius = useGameStore((s) => s.tokenRadius)
   const tokenLabelSize = useGameStore((s) => s.tokenLabelSize)
   const tokenLabelVisible = useGameStore((s) => s.tokenLabelVisible)
@@ -484,14 +485,26 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
 
       if (effectiveTool === 'fog-reveal') {
         // Bright green ring: reveals fog
-        cursor
-          .circle(x, y, screenRadius)
-          .stroke({ color: 0x00ff88, width: 1.5, alpha: 0.85 })
+        if (brushShape === 'square') {
+          cursor
+            .rect(x - screenRadius, y - screenRadius, screenRadius * 2, screenRadius * 2)
+            .stroke({ color: 0x00ff88, width: 1.5, alpha: 0.85 })
+        } else {
+          cursor
+            .circle(x, y, screenRadius)
+            .stroke({ color: 0x00ff88, width: 1.5, alpha: 0.85 })
+        }
       } else {
         // Red ring: hides (re-fogs)
-        cursor
-          .circle(x, y, screenRadius)
-          .stroke({ color: 0xff4444, width: 1.5, alpha: 0.85 })
+        if (brushShape === 'square') {
+          cursor
+            .rect(x - screenRadius, y - screenRadius, screenRadius * 2, screenRadius * 2)
+            .stroke({ color: 0xff4444, width: 1.5, alpha: 0.85 })
+        } else {
+          cursor
+            .circle(x, y, screenRadius)
+            .stroke({ color: 0xff4444, width: 1.5, alpha: 0.85 })
+        }
         // Small crosshair in center
         cursor
           .moveTo(x - 6, y).lineTo(x + 6, y)
@@ -499,7 +512,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
           .stroke({ color: 0xff4444, width: 1, alpha: 0.7 })
       }
     },
-    [isPlayerView, toScreenCoords]
+    [isPlayerView, toScreenCoords, brushShape]
   )
 
   // ── Paint helper (with stroke interpolation) ─────────────────────────────
@@ -508,7 +521,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       const fogLayer = fogLayerRef.current
       if (!fogLayer?.isReady) return
 
-      const opType = tool === 'fog-reveal' ? 'reveal-circle' : 'hide-circle'
+      const shape = brushShape
+      const opType = tool === 'fog-reveal'
+        ? (shape === 'square' ? 'reveal-square' : 'reveal-circle')
+        : (shape === 'square' ? 'hide-square' : 'hide-circle')
       const last = lastPaintPosRef.current
 
       if (last) {
@@ -532,7 +548,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       strokeBufferRef.current.push(op)
       lastPaintPosRef.current = { x: mapX, y: mapY }
     },
-    [] // no deps — only touches refs
+    [brushShape] // brushShape is read directly (not via ref) so it must be a dep
   )
 
   // ── Cancel attack target pick mode on Escape ─────────────────────────────

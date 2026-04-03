@@ -54,8 +54,10 @@ export function DMView(): React.JSX.Element {
   const monsterFileRef = useRef<HTMLInputElement>(null)
   const dockRef = useRef<HTMLDivElement>(null)
   const dockVisibleRef = useRef(false)
+  const dockPinnedRef = useRef(false)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [dockVisible, setDockVisible] = useState(false)
+  const [dockPinned, setDockPinned] = useState(false)
   const [showCloseWarning, setShowCloseWarning] = useState(false)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
   const [showIdlePopover, setShowIdlePopover] = useState(false)
@@ -71,6 +73,7 @@ export function DMView(): React.JSX.Element {
     battle,
     activeTool,
     brushRadius,
+    brushShape,
     tokenRadius,
     tokenLabelSize,
     tokenLabelVisible,
@@ -87,6 +90,7 @@ export function DMView(): React.JSX.Element {
     updateToken,
     setActiveTool,
     setBrushRadius,
+    setBrushShape,
     setTokenRadius,
     setTokenLabelSize,
     setTokenLabelVisible,
@@ -261,6 +265,7 @@ export function DMView(): React.JSX.Element {
   }
 
   function scheduleDockHide(): void {
+    if (dockPinnedRef.current) return
     hideTimerRef.current = setTimeout(() => {
       dockVisibleRef.current = false
       setDockVisible(false)
@@ -1024,7 +1029,7 @@ export function DMView(): React.JSX.Element {
 
       {/* ── Tool Dock ── */}
       {map && (
-        <div ref={dockRef} className={`tool-dock ${dockVisible ? 'tool-dock-visible' : ''}`}>
+        <div ref={dockRef} className={`tool-dock ${dockVisible || dockPinned ? 'tool-dock-visible' : ''}`}>
           {DOCK_TOOLS.map((tool) => (
             <div key={tool.id} className="dock-slot">
               {activeTool === tool.id && (tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide' || tool.id === 'laser' || tool.id === 'measure') && (
@@ -1041,6 +1046,18 @@ export function DMView(): React.JSX.Element {
                           onChange={(e) => setBrushRadius(Number(e.target.value))}
                         />
                       </label>
+                      <div className="brush-shape-toggle">
+                        <button
+                          className={`brush-shape-btn ${brushShape === 'circle' ? 'brush-shape-btn-active' : ''}`}
+                          onClick={() => setBrushShape('circle')}
+                          title="Circle brush"
+                        >◯ Circle</button>
+                        <button
+                          className={`brush-shape-btn ${brushShape === 'square' ? 'brush-shape-btn-active' : ''}`}
+                          onClick={() => setBrushShape('square')}
+                          title="Square brush"
+                        >▢ Square</button>
+                      </div>
                       {tool.id === 'fog-reveal' && (
                         <button className="btn btn-secondary" onClick={revealAllFog} style={{ fontSize: 12 }}>
                           Reveal All
@@ -1126,6 +1143,18 @@ export function DMView(): React.JSX.Element {
               </button>
             </div>
           ))}
+          <button
+            className={`dock-pin-btn ${dockPinned ? 'dock-pin-btn-active' : ''}`}
+            onClick={() => {
+              const next = !dockPinned
+              dockPinnedRef.current = next
+              setDockPinned(next)
+              if (next) showDock()
+            }}
+            title={dockPinned ? 'Auto-hide toolbar (currently pinned)' : 'Pin toolbar (currently auto-hiding)'}
+          >
+            📌
+          </button>
         </div>
       )}
 

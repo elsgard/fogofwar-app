@@ -6,6 +6,7 @@ interface GameStore extends GameState {
   // Local UI state
   activeTool: 'select' | 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser' | 'measure'
   brushRadius: number
+  brushShape: 'circle' | 'square'
   selectedTokenId: string | null
   laserRadius: number
   laserColor: string
@@ -40,6 +41,7 @@ interface GameStore extends GameState {
   setAttackPickedTokenId: (id: string | null) => void
   setActiveTool: (tool: GameStore['activeTool']) => void
   setBrushRadius: (r: number) => void
+  setBrushShape: (shape: 'circle' | 'square') => void
   setTokenRadius: (r: number) => void
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void
@@ -83,6 +85,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // UI state
   activeTool: 'select',
   brushRadius: 60,
+  brushShape: 'circle',
   tokenRadius: 20,
   tokenLabelSize: 14,
   tokenLabelVisible: true,
@@ -210,6 +213,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setAttackPickedTokenId: (id) => set({ attackPickedTokenId: id }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setBrushRadius: (brushRadius) => set({ brushRadius }),
+  setBrushShape: (brushShape) => set({ brushShape }),
   setTokenRadius: (tokenRadius) => {
     window.api?.setTokenRadius(tokenRadius)
     set({ tokenRadius, isDirty: true })

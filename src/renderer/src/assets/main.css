@@ -1208,6 +1208,65 @@ kbd {
   line-height: 14px;
 }
 
+/* ── Brush shape toggle ─────────────────────────────────────────── */
+
+.brush-shape-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.brush-shape-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 11px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.brush-shape-btn:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.brush-shape-btn-active {
+  background: var(--accent);
+  border-color: var(--accent-dark);
+  color: #fff;
+}
+
+/* ── Dock pin button ────────────────────────────────────────────── */
+
+.dock-pin-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.35;
+  padding: 0;
+  align-self: flex-end;
+  transition: opacity 0.15s;
+  margin-left: 2px;
+  margin-bottom: 2px;
+}
+
+.dock-pin-btn:hover {
+  opacity: 0.75;
+}
+
+.dock-pin-btn-active {
+  opacity: 1;
+}
+
 /* ── Dock settings popover ──────────────────────────────────────── */
 
 .dock-popover {
