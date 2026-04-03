@@ -50,6 +50,117 @@ const DOCK_TOOLS = [
 
 const LASER_COLORS = ['#ff2222', '#ff9800', '#ffeb3b', '#4caf50', '#4a9eff', '#ffffff']
 
+const AVATAR_EMOJIS = ['🐉','🐺','🕷️','🦇','👹','💀','🦁','🐍','🐻','🐗','🐊','🦅','🦉','🧝','🧙','⚔️','🛡️','🗡️','🔥','❄️','⚡','☠️','👁️','🐲']
+
+type AppearanceTab = 'color' | 'emoji' | 'image'
+
+function TokenAppearancePicker({
+  color,
+  onColorChange,
+  avatar,
+  onAvatarChange,
+}: {
+  color: string
+  onColorChange: (c: string) => void
+  avatar: string | null
+  onAvatarChange: (v: string | null) => void
+}): React.JSX.Element {
+  const initTab = (): AppearanceTab => {
+    if (!avatar) return 'color'
+    if (avatar.startsWith('data:')) return 'image'
+    return 'emoji'
+  }
+  const [tab, setTab] = useState<AppearanceTab>(initTab)
+
+  function handleTabChange(t: AppearanceTab): void {
+    setTab(t)
+    if (t === 'color') onAvatarChange(null)
+  }
+
+  return (
+    <div className="token-appearance-picker">
+      <div className="token-appearance-tabs">
+        <button className={`token-appearance-tab ${tab === 'color' ? 'active' : ''}`} onClick={() => handleTabChange('color')}>Color</button>
+        <button className={`token-appearance-tab ${tab === 'emoji' ? 'active' : ''}`} onClick={() => handleTabChange('emoji')}>Emoji</button>
+        <button className={`token-appearance-tab ${tab === 'image' ? 'active' : ''}`} onClick={() => handleTabChange('image')}>Image</button>
+      </div>
+      {tab === 'color' && (
+        <div className="color-swatches">
+          {TOKEN_COLORS.map((c) => (
+            <button
+              key={c}
+              className={`swatch ${color === c ? 'swatch-active' : ''}`}
+              style={{ background: c }}
+              onClick={() => onColorChange(c)}
+            />
+          ))}
+          <label
+            className={`swatch swatch-picker ${!TOKEN_COLORS.includes(color) ? 'swatch-active' : ''}`}
+            style={TOKEN_COLORS.includes(color) ? undefined : { background: color }}
+            title="Custom color"
+          >
+            <input type="color" value={color} onChange={(e) => onColorChange(e.target.value)} />
+          </label>
+        </div>
+      )}
+      {tab === 'emoji' && (
+        <div className="avatar-emoji-grid">
+          {AVATAR_EMOJIS.map((em) => (
+            <button
+              key={em}
+              className={`avatar-emoji-btn ${avatar === em ? 'avatar-emoji-active' : ''}`}
+              onClick={() => onAvatarChange(avatar === em ? null : em)}
+              title={em}
+            >{em}</button>
+          ))}
+        </div>
+      )}
+      {tab === 'image' && (
+        <div className="avatar-image-tab">
+          {avatar?.startsWith('data:') && (
+            <img src={avatar} className="avatar-image-preview" alt="" />
+          )}
+          <label className="btn btn-secondary" style={{ fontSize: 11, cursor: 'pointer' }}>
+            📂 Upload image
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = (ev) => {
+                  const src = ev.target?.result as string
+                  const img = new Image()
+                  img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    canvas.width = canvas.height = 256
+                    const ctx = canvas.getContext('2d')!
+                    const min = Math.min(img.width, img.height)
+                    const sx = (img.width - min) / 2
+                    const sy = (img.height - min) / 2
+                    ctx.drawImage(img, sx, sy, min, min, 0, 0, 256, 256)
+                    onAvatarChange(canvas.toDataURL('image/jpeg', 0.85))
+                  }
+                  img.src = src
+                }
+                reader.readAsDataURL(file)
+                e.target.value = ''
+              }}
+            />
+          </label>
+          {avatar?.startsWith('data:') && (
+            <button className="btn btn-secondary" style={{ fontSize: 11 }} onClick={() => onAvatarChange(null)}>
+              ✕ Clear
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function DMView(): React.JSX.Element {
   const mapCanvasRef = useRef<MapCanvasHandle>(null)
   const menubarRef = useRef<HTMLElement>(null)
@@ -137,6 +248,7 @@ export function DMView(): React.JSX.Element {
   const [newTokenHp, setNewTokenHp] = useState('')
   const [newTokenHpMax, setNewTokenHpMax] = useState('')
   const [newTokenAc, setNewTokenAc] = useState('')
+  const [newTokenAvatar, setNewTokenAvatar] = useState<string | null>(null)
   const [pendingMonsterEntry, setPendingMonsterEntry] = useState<MonsterEntry | null>(null)
 
   const selectedToken = tokens.find((t) => t.id === selectedTokenId) ?? null
@@ -149,6 +261,7 @@ export function DMView(): React.JSX.Element {
   const [editHp, setEditHp] = useState('')
   const [editHpMax, setEditHpMax] = useState('')
   const [editAc, setEditAc] = useState('')
+  const [editAvatar, setEditAvatar] = useState<string | null>(null)
 
   // Auto-clear monster reveal when the character sheet modal is closed
   useEffect(() => {
@@ -201,6 +314,7 @@ export function DMView(): React.JSX.Element {
     setEditHp(selectedToken.hp != null ? String(selectedToken.hp) : '')
     setEditHpMax(selectedToken.hpMax != null ? String(selectedToken.hpMax) : '')
     setEditAc(selectedToken.ac != null ? String(selectedToken.ac) : '')
+    setEditAvatar(selectedToken.avatar ?? null)
   }, [selectedToken?.id])
 
   // Tool keyboard shortcuts
@@ -340,12 +454,14 @@ export function DMView(): React.JSX.Element {
       hpMax: newTokenHpMax.trim() ? parseInt(newTokenHpMax, 10) : null,
       ac: newTokenAc.trim() ? parseInt(newTokenAc, 10) : null,
       monsterSheet: pendingMonsterEntry ? entryToSheet(pendingMonsterEntry) : null,
+      ...(newTokenAvatar ? { avatar: newTokenAvatar } : {}),
     })
     setNewTokenLabel('')
     setNewTokenSize('medium')
     setNewTokenHp('')
     setNewTokenHpMax('')
     setNewTokenAc('')
+    setNewTokenAvatar(null)
     setPendingMonsterEntry(null)
   }
 
@@ -383,6 +499,7 @@ export function DMView(): React.JSX.Element {
       type: token.type,
       label: `${base} ${maxN + 1}`,
       color: token.color,
+      size: token.size,
       x: token.x + 40,
       y: token.y + 40,
       visibleToPlayers: token.visibleToPlayers,
@@ -391,6 +508,7 @@ export function DMView(): React.JSX.Element {
       hpMax: token.hpMax ?? null,
       ac: token.ac ?? null,
       monsterSheet: token.monsterSheet ?? null,
+      ...(token.avatar ? { avatar: token.avatar } : {}),
     })
   }
 
@@ -714,27 +832,12 @@ export function DMView(): React.JSX.Element {
                       </label>
                     ))}
                   </div>
-                  <div className="color-swatches">
-                    {TOKEN_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        className={`swatch ${newTokenColor === c ? 'swatch-active' : ''}`}
-                        style={{ background: c }}
-                        onClick={() => setNewTokenColor(c)}
-                      />
-                    ))}
-                    <label
-                      className={`swatch swatch-picker ${!TOKEN_COLORS.includes(newTokenColor) ? 'swatch-active' : ''}`}
-                      style={TOKEN_COLORS.includes(newTokenColor) ? undefined : { background: newTokenColor }}
-                      title="Custom color"
-                    >
-                      <input
-                        type="color"
-                        value={newTokenColor}
-                        onChange={(e) => setNewTokenColor(e.target.value)}
-                      />
-                    </label>
-                  </div>
+                  <TokenAppearancePicker
+                    color={newTokenColor}
+                    onColorChange={setNewTokenColor}
+                    avatar={newTokenAvatar}
+                    onAvatarChange={setNewTokenAvatar}
+                  />
                   <div className="token-stat-row">
                     <input
                       type="number"
@@ -771,10 +874,12 @@ export function DMView(): React.JSX.Element {
                     className={`token-item ${selectedTokenId === token.id ? 'token-selected' : ''}`}
                     onClick={() => setSelectedTokenId(token.id === selectedTokenId ? null : token.id)}
                   >
-                    <span
-                      className="token-dot"
-                      style={{ background: token.color }}
-                    />
+                    {token.avatar && !token.avatar.startsWith('data:')
+                      ? <span className="token-dot-emoji">{token.avatar}</span>
+                      : token.avatar?.startsWith('data:')
+                        ? <img src={token.avatar} className="token-dot-img" alt="" />
+                        : <span className="token-dot" style={{ background: token.color }} />
+                    }
                     <span className="token-label">{token.label}</span>
                     <span className="token-type">{token.type}</span>
                     <div className="token-item-actions">
@@ -909,27 +1014,13 @@ export function DMView(): React.JSX.Element {
                   </label>
                 ))}
               </div>
-              <div className="color-swatches">
-                {TOKEN_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    className={`swatch ${editColor === c ? 'swatch-active' : ''}`}
-                    style={{ background: c }}
-                    onClick={() => { setEditColor(c); updateToken({ ...selectedToken, color: c }) }}
-                  />
-                ))}
-                <label
-                  className={`swatch swatch-picker ${!TOKEN_COLORS.includes(editColor) ? 'swatch-active' : ''}`}
-                  style={TOKEN_COLORS.includes(editColor) ? undefined : { background: editColor }}
-                  title="Custom color"
-                >
-                  <input
-                    type="color"
-                    value={editColor}
-                    onChange={(e) => { setEditColor(e.target.value); updateToken({ ...selectedToken, color: e.target.value }) }}
-                  />
-                </label>
-              </div>
+              <TokenAppearancePicker
+                key={selectedToken.id}
+                color={editColor}
+                onColorChange={(c) => { setEditColor(c); updateToken({ ...selectedToken, color: c }) }}
+                avatar={editAvatar}
+                onAvatarChange={(v) => { setEditAvatar(v); updateToken({ ...selectedToken, avatar: v ?? undefined }) }}
+              />
               <div className="token-stat-row">
                 <input type="number" placeholder="HP" value={editHp}
                   onChange={(e) => setEditHp(e.target.value)} onBlur={saveEditStats} />

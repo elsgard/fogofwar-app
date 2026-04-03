@@ -1,4 +1,4 @@
-import { Container, Graphics, Text, TextStyle } from 'pixi.js'
+import { Container, Graphics, ImageSource, Sprite, Text, TextStyle, Texture } from 'pixi.js'
 import type { Token, TokenSize, TokenStatus } from '../types'
 
 const DEFAULT_TOKEN_RADIUS = 20
@@ -26,6 +26,10 @@ interface TokenSprite {
   circle: Graphics
   statusGraphic: Graphics
   statusLabel: Text
+  avatarText: Text       // emoji display; hidden when no emoji avatar
+  avatarSprite: Sprite | null   // image display; null when no image avatar
+  avatarMask: Graphics | null   // circular clip mask for avatarSprite
+  avatar: string | null  // current avatar value mirrored from token
   label: Text
   color: number
   status: TokenStatus
@@ -164,16 +168,61 @@ export class TokenLayer extends Container {
     }
   }
 
+  private drawAvatar(sprite: TokenSprite, r: number): void {
+    // Destroy any existing image sprite
+    if (sprite.avatarSprite) {
+      sprite.avatarMask?.destroy()
+      sprite.avatarSprite.destroy()
+      sprite.avatarSprite = null
+      sprite.avatarMask = null
+    }
+    sprite.avatarText.visible = false
+
+    const { avatar } = sprite
+    if (!avatar) return
+
+    if (!avatar.startsWith('data:')) {
+      // Emoji branch
+      sprite.avatarText.text = avatar
+      sprite.avatarText.style = new TextStyle({
+        fontSize: r * 1.6,
+        fill: 0xffffff,
+        dropShadow: { color: 0x000000, blur: 3, distance: 0, alpha: 0.6 },
+      })
+      sprite.avatarText.visible = true
+    } else {
+      // Image branch — build texture directly to avoid PixiJS asset-cache warnings
+      const img = new Image()
+      img.src = avatar
+      const tex = new Texture({ source: new ImageSource({ resource: img }) })
+      const sp = new Sprite(tex)
+      sp.anchor.set(0.5, 0.5)
+      sp.width = r * 2
+      sp.height = r * 2
+      const mask = new Graphics()
+      mask.circle(0, 0, r).fill(0xffffff)
+      sp.mask = mask
+      // Insert after circle, before statusGraphic
+      const statusIdx = sprite.container.getChildIndex(sprite.statusGraphic)
+      sprite.container.addChildAt(mask, statusIdx)
+      sprite.container.addChildAt(sp, statusIdx)
+      sprite.avatarSprite = sp
+      sprite.avatarMask = mask
+    }
+  }
+
   /** Redraws the circle and status indicator for a sprite. */
   private drawCircle(sprite: TokenSprite): void {
     const { circle, statusGraphic, color, status } = sprite
     const r = this.effectiveRadius(sprite.size)
 
     circle.clear()
-    if (status === 'dead') {
-      circle.circle(0, 0, r).fill({ color, alpha: 0.35 })
-    } else {
-      circle.circle(0, 0, r).fill(color)
+    if (!sprite.avatar) {
+      if (status === 'dead') {
+        circle.circle(0, 0, r).fill({ color, alpha: 0.35 })
+      } else {
+        circle.circle(0, 0, r).fill(color)
+      }
     }
 
     statusGraphic.clear()
@@ -196,6 +245,8 @@ export class TokenLayer extends Container {
         .moveTo(x, -x).lineTo(-x, x)
         .stroke({ color: 0xffffff, width: 3, alpha: 0.9 })
     }
+
+    this.drawAvatar(sprite, r)
   }
 
   syncTokens(tokens: Token[]): void {
@@ -246,15 +297,22 @@ export class TokenLayer extends Container {
     const statusLabel = new Text({ text: '⚠', style: new TextStyle({ fontSize: this.effectiveRadius(size) * 1.4, fill: 0xf59e0b }) })
     statusLabel.anchor.set(0.5, 0.5)
     statusLabel.visible = false
+    const avatarText = new Text({ text: '', style: new TextStyle({ fontSize: this.effectiveRadius(size) * 1.6, fill: 0xffffff }) })
+    avatarText.anchor.set(0.5, 0.5)
+    avatarText.visible = false
     const label = new Text({ text: token.label, style: this.makeLabelStyle() })
     label.anchor.set(0.5, 0.5)
     label.y = -(this.effectiveRadius(size) + 10)
     label.visible = (this.labelsVisible && !this.labelHiddenTypes[token.type]) || token.id === this.hoveredId
 
-    container.addChild(turnOutline, outline, circle, statusGraphic, statusLabel, label)
+    container.addChild(turnOutline, outline, circle, statusGraphic, statusLabel, avatarText, label)
     this.addChild(container)
 
-    const sprite: TokenSprite = { container, turnOutline, outline, circle, statusGraphic, statusLabel, label, color, status, type: token.type, size }
+    const sprite: TokenSprite = {
+      container, turnOutline, outline, circle, statusGraphic, statusLabel,
+      avatarText, avatarSprite: null, avatarMask: null, avatar: token.avatar ?? null,
+      label, color, status, type: token.type, size,
+    }
     this.sprites.set(token.id, sprite)
     this.drawCircle(sprite)
     this.drawTurnOutline(sprite, token.id === this.activeTurnId)
@@ -268,6 +326,7 @@ export class TokenLayer extends Container {
     sprite.color = this.parseColor(token.color) ?? TYPE_COLORS[token.type]
     sprite.status = token.status ?? 'alive'
     sprite.size = token.size ?? 'medium'
+    sprite.avatar = token.avatar ?? null
     this.drawCircle(sprite)
     sprite.label.text = token.label
     sprite.label.y = -(this.effectiveRadius(sprite.size) + 10)

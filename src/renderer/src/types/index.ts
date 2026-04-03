@@ -36,6 +36,7 @@ export interface Token {
   hpMax?: number | null
   ac?: number | null
   monsterSheet?: MonsterSheet | null
+  avatar?: string // emoji char OR data:image/jpeg base64
 }
 
 // A single fog operation - stored as a list so we can replay on new windows

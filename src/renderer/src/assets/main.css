@@ -696,6 +696,7 @@ kbd {
 
 .token-type-radios {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
@@ -1276,6 +1277,60 @@ kbd {
   gap: 2px;
   flex-shrink: 0;
 }
+
+/* ── Token appearance picker (tabbed color / emoji / image) ─────── */
+
+.token-appearance-picker { display: flex; flex-direction: column; gap: 6px; }
+
+.token-appearance-tabs {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.token-appearance-tab {
+  flex: 1;
+  padding: 3px 0;
+  font-size: 11px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.token-appearance-tab:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+.token-appearance-tab.active { background: var(--accent); color: #fff; }
+
+.avatar-emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.avatar-emoji-btn {
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-emoji-btn:hover { background: rgba(255,255,255,0.14); }
+.avatar-emoji-active { border-color: var(--accent) !important; background: rgba(99,102,241,0.2) !important; }
+
+.avatar-image-tab { display: flex; align-items: center; gap: 8px; }
+.avatar-image-preview { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+
+.token-dot-emoji { font-size: 14px; width: 14px; text-align: center; flex-shrink: 0; }
+.token-dot-img { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 
 /* ── Brush shape toggle ─────────────────────────────────────────── */
 
