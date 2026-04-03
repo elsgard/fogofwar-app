@@ -1,13 +1,16 @@
 import { create } from 'zustand'
-import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal, IdleEffects, MapScale } from '../types'
+import type { GameState, FogOp, Token, MapInfo, PlayerViewport, Battle, MonsterReveal, IdleEffects, MapScale, AreaEffect, AreaEffectKind } from '../types'
 import type { MonsterEntry } from '../types/monster'
 
 interface GameStore extends GameState {
   // Local UI state
-  activeTool: 'select' | 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser' | 'measure'
+  activeTool: 'select' | 'fog-reveal' | 'fog-hide' | 'token-move' | 'pan' | 'laser' | 'measure' | 'area-effect'
   brushRadius: number
   brushShape: 'circle' | 'square'
   selectedTokenId: string | null
+  selectedAreaEffectId: string | null
+  areaEffectShape: 'circle' | 'rect'
+  areaEffectKind: AreaEffectKind
   laserRadius: number
   laserColor: string
   isPickingAttackTarget: boolean
@@ -26,6 +29,9 @@ interface GameStore extends GameState {
   addToken: (token: Omit<Token, 'id'>) => void
   updateToken: (token: Token) => void
   removeToken: (id: string) => void
+  addAreaEffect: (effect: Omit<AreaEffect, 'id'>) => void
+  updateAreaEffect: (effect: AreaEffect) => void
+  removeAreaEffect: (id: string) => void
 
   // Local DM-only state (not broadcast)
   monsters: MonsterEntry[] | null
@@ -42,6 +48,9 @@ interface GameStore extends GameState {
   setActiveTool: (tool: GameStore['activeTool']) => void
   setBrushRadius: (r: number) => void
   setBrushShape: (shape: 'circle' | 'square') => void
+  setSelectedAreaEffectId: (id: string | null) => void
+  setAreaEffectShape: (shape: 'circle' | 'rect') => void
+  setAreaEffectKind: (kind: AreaEffectKind) => void
   setTokenRadius: (r: number) => void
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void
@@ -69,6 +78,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   fogOps: [],
   fogSnapshot: null,
   tokens: [],
+  areaEffects: [],
   playerViewport: null,
 
   // GameState extras
@@ -91,6 +101,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   tokenLabelVisible: true,
   tokenLabelHiddenTypes: { player: false, npc: false, enemy: false },
   selectedTokenId: null,
+  selectedAreaEffectId: null,
+  areaEffectShape: 'circle',
+  areaEffectKind: 'burning',
   laserRadius: 8,
   laserColor: '#ff2222',
   isPickingAttackTarget: false,
@@ -131,6 +144,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       idleMode: state.idleMode ?? false,
       idleEffects: state.idleEffects ?? { smoke: true, glow: true, embers: true, lightning: true, pulse: true },
       mapScale: state.mapScale ?? null,
+      areaEffects: state.areaEffects ?? [],
   })),
 
   loadMap: async () => {
@@ -206,6 +220,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (get().selectedTokenId === id) set({ selectedTokenId: null })
   },
 
+  addAreaEffect: (partial) => {
+    const effect: AreaEffect = { ...partial, id: crypto.randomUUID() }
+    window.api.addAreaEffect(effect)
+    set((s) => ({ areaEffects: [...s.areaEffects, effect], isDirty: true }))
+  },
+
+  updateAreaEffect: (effect) => {
+    window.api.updateAreaEffect(effect)
+    set((s) => ({ areaEffects: s.areaEffects.map((e) => (e.id === effect.id ? effect : e)), isDirty: true }))
+  },
+
+  removeAreaEffect: (id) => {
+    window.api.removeAreaEffect(id)
+    set((s) => ({ areaEffects: s.areaEffects.filter((e) => e.id !== id), isDirty: true }))
+    if (get().selectedAreaEffectId === id) set({ selectedAreaEffectId: null })
+  },
+
   setMonsters: (monsters) => set({ monsters }),
   setCalibrationPoints: (p1, p2) => set({ calibrationPending: { p1, p2 } }),
   clearCalibrationPending: () => set({ calibrationPending: null }),
@@ -214,6 +245,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setActiveTool: (tool) => set({ activeTool: tool }),
   setBrushRadius: (brushRadius) => set({ brushRadius }),
   setBrushShape: (brushShape) => set({ brushShape }),
+  setSelectedAreaEffectId: (selectedAreaEffectId) => set({ selectedAreaEffectId }),
+  setAreaEffectShape: (areaEffectShape) => set({ areaEffectShape }),
+  setAreaEffectKind: (areaEffectKind) => set({ areaEffectKind }),
   setTokenRadius: (tokenRadius) => {
     window.api?.setTokenRadius(tokenRadius)
     set({ tokenRadius, isDirty: true })

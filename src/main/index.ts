@@ -356,6 +356,21 @@ app.whenReady().then(() => {
     broadcastState()
   })
 
+  ipcMain.on(IPC.ADD_AREA_EFFECT, (_, effect) => {
+    gs.addAreaEffect(effect)
+    broadcastState()
+  })
+
+  ipcMain.on(IPC.UPDATE_AREA_EFFECT, (_, effect) => {
+    gs.updateAreaEffect(effect)
+    broadcastState()
+  })
+
+  ipcMain.on(IPC.REMOVE_AREA_EFFECT, (_, id) => {
+    gs.removeAreaEffect(id)
+    broadcastState()
+  })
+
   ipcMain.on(IPC.SET_TOKEN_RADIUS, (_, r: number) => {
     gs.setTokenRadius(r)
     broadcastState()
@@ -418,6 +433,7 @@ app.whenReady().then(() => {
       playerViewport: state.playerViewport,
       battle: state.battle,
       mapScale: state.mapScale ?? null,
+      areaEffects: state.areaEffects,
     }
     await writeFile(filePath, JSON.stringify(save), 'utf-8')
     return { success: true }

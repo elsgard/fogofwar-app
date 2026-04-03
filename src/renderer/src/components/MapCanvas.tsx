@@ -7,6 +7,7 @@ import { FogLayer } from '../pixi/FogLayer'
 import { TokenLayer } from '../pixi/TokenLayer'
 import { LaserLayer } from '../pixi/LaserLayer'
 import { MeasurementLayer } from '../pixi/MeasurementLayer'
+import { AreaEffectLayer, AREA_EFFECT_PRESETS } from '../pixi/AreaEffectLayer'
 import { useGameStore } from '../store/gameStore'
 import type { FogOp, PlayerViewport } from '../types'
 
@@ -40,6 +41,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const tokenLayerRef = useRef<TokenLayer | null>(null)
   const laserLayerRef = useRef<LaserLayer | null>(null)
   const measurementLayerRef = useRef<MeasurementLayer | null>(null)
+  const areaEffectLayerRef = useRef<AreaEffectLayer | null>(null)
 
   // Brush cursor — lives on app.stage (screen space, unaffected by pan/zoom)
   const brushCursorRef = useRef<Graphics | null>(null)
@@ -61,6 +63,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   // Right-click laser — active regardless of the selected tool
   const isRightClickLasingRef = useRef(false)
 
+  // Area effect drawing state
+  const isDrawingAreaEffectRef = useRef(false)
+  const areaEffectDrawStartRef = useRef<{ x: number; y: number } | null>(null)
+
   // Measure tool state
   const isMeasuringRef = useRef(false)
   const measureStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -80,6 +86,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const activeTool = useGameStore((s) => s.activeTool)
   const brushRadius = useGameStore((s) => s.brushRadius)
   const brushShape = useGameStore((s) => s.brushShape)
+  const areaEffects = useGameStore((s) => s.areaEffects)
+  const selectedAreaEffectId = useGameStore((s) => s.selectedAreaEffectId)
+  const areaEffectShape = useGameStore((s) => s.areaEffectShape)
+  const areaEffectKind = useGameStore((s) => s.areaEffectKind)
   const tokenRadius = useGameStore((s) => s.tokenRadius)
   const tokenLabelSize = useGameStore((s) => s.tokenLabelSize)
   const tokenLabelVisible = useGameStore((s) => s.tokenLabelVisible)
@@ -89,7 +99,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const laserRadius = useGameStore((s) => s.laserRadius)
   const laserColor = useGameStore((s) => s.laserColor)
   const isPickingAttackTarget = useGameStore((s) => s.isPickingAttackTarget)
-  const { commitStroke, updateToken, setSelectedTokenId } = useGameStore()
+  const { commitStroke, updateToken, setSelectedTokenId, addAreaEffect, setSelectedAreaEffectId } = useGameStore()
 
   // Compaction threshold — when fogOps exceeds this after a stroke, bake a snapshot
   const COMPACT_THRESHOLD = 500
@@ -143,16 +153,22 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         // Player: tokens below fog (hidden by unrevealed areas)
         // Laser is always on top of everything in both views
         const measurementLayer = new MeasurementLayer()
+        const areaEffectLayer = new AreaEffectLayer()
+        areaEffectLayer.setPlayerView(isPlayerView)
+        areaEffectLayer.setLabelSize(useGameStore.getState().tokenLabelSize)
         if (isPlayerView) {
-          world.addChild(mapLayer, tokenLayer, fogLayer, laserLayer)
+          // map → areaEffects → tokens → fog → laser (fog hides effects in unrevealed areas)
+          world.addChild(mapLayer, areaEffectLayer, tokenLayer, fogLayer, laserLayer)
         } else {
-          world.addChild(mapLayer, fogLayer, tokenLayer, laserLayer, measurementLayer)
+          // map → fog → areaEffects → tokens → laser (DM sees effects above semi-transparent fog)
+          world.addChild(mapLayer, fogLayer, areaEffectLayer, tokenLayer, laserLayer, measurementLayer)
         }
         mapLayerRef.current = mapLayer
         fogLayerRef.current = fogLayer
         tokenLayerRef.current = tokenLayer
         laserLayerRef.current = laserLayer
         measurementLayerRef.current = measurementLayer
+        areaEffectLayerRef.current = areaEffectLayer
 
         app.ticker.add(() => laserLayer.tick())
 
@@ -189,6 +205,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
           fogLayer.applyOps(currentFogOps, snapshotCanvasRef.current)
           prevFogOpsLenRef.current = currentFogOps.length
           tokenLayer.syncTokens(currentTokens)
+          areaEffectLayer.syncAreaEffects(useGameStore.getState().areaEffects)
 
           // Fit the world using known dimensions before the image loads so the
           // fog is already positioned correctly while the sprite is pending.
@@ -320,6 +337,16 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     if (!isPlayerView) tokenLayerRef.current?.setSelectedToken(selectedTokenId)
   }, [selectedTokenId, isPlayerView])
 
+  // ── React to area effect changes ─────────────────────────────────────────
+  useEffect(() => {
+    areaEffectLayerRef.current?.syncAreaEffects(areaEffects)
+  }, [areaEffects])
+
+  // ── Highlight selected area effect (DM only) ─────────────────────────────
+  useEffect(() => {
+    if (!isPlayerView) areaEffectLayerRef.current?.setSelected(selectedAreaEffectId)
+  }, [selectedAreaEffectId, isPlayerView])
+
   // ── Highlight active-turn token (both DM and player) ─────────────────────
   useEffect(() => {
     const activeTokenId =
@@ -364,6 +391,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   // ── React to token label changes ─────────────────────────────────────────
   useEffect(() => {
     tokenLayerRef.current?.setLabelSize(tokenLabelSize)
+    areaEffectLayerRef.current?.setLabelSize(tokenLabelSize)
   }, [tokenLabelSize])
 
   useEffect(() => {
@@ -612,11 +640,18 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
           strokeBufferRef.current = []
           paintAt(x, y, 'fog-hide', brushRadius)
         } else {
-          const hitId = tokenLayerRef.current?.hitTest(x, y) ?? null
-          setSelectedTokenId(hitId)
-          if (hitId) {
-            isDraggingTokenRef.current = hitId
+          const tokenHitId = tokenLayerRef.current?.hitTest(x, y) ?? null
+          const aeHitId = areaEffectLayerRef.current?.hitTest(x, y) ?? null
+          if (tokenHitId) {
+            setSelectedTokenId(tokenHitId)
+            setSelectedAreaEffectId(null)
+            isDraggingTokenRef.current = tokenHitId
+          } else if (aeHitId) {
+            setSelectedAreaEffectId(aeHitId)
+            setSelectedTokenId(null)
           } else {
+            setSelectedTokenId(null)
+            setSelectedAreaEffectId(null)
             isPanningRef.current = true
             lastPanRef.current = { x: e.clientX, y: e.clientY }
           }
@@ -665,8 +700,19 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         measureStartRef.current = { x, y }
         measurementLayerRef.current?.clear()
       }
+      if (activeTool === 'area-effect') {
+        const aeHitId = areaEffectLayerRef.current?.hitTest(x, y) ?? null
+        if (aeHitId) {
+          setSelectedAreaEffectId(aeHitId)
+          return
+        }
+        setSelectedAreaEffectId(null)
+        isDrawingAreaEffectRef.current = true
+        areaEffectDrawStartRef.current = { x, y }
+        return
+      }
     },
-    [isPlayerView, activeTool, brushRadius, laserRadius, laserColor, toMapCoords, paintAt, setSelectedTokenId]
+    [isPlayerView, activeTool, brushRadius, laserRadius, laserColor, toMapCoords, paintAt, setSelectedTokenId, setSelectedAreaEffectId]
   )
 
   const onPointerMove = useCallback(
@@ -712,6 +758,27 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         }
       }
 
+      if (isDrawingAreaEffectRef.current && areaEffectDrawStartRef.current) {
+        const { x, y } = toMapCoords(e)
+        const start = areaEffectDrawStartRef.current
+        const { color } = AREA_EFFECT_PRESETS[areaEffectKind]
+        const scale = useGameStore.getState().mapScale
+        if (areaEffectShape === 'circle') {
+          const radius = Math.hypot(x - start.x, y - start.y)
+          const sizeLabel = scale
+            ? `r ${(radius / scale.pixelsPerFoot).toFixed(1)} ft`
+            : `r ${Math.round(radius)} px`
+          areaEffectLayerRef.current?.showPreview(start.x, start.y, radius, radius, 'circle', color, 0.45, sizeLabel)
+        } else {
+          const hw = Math.abs(x - start.x) / 2
+          const hh = Math.abs(y - start.y) / 2
+          const sizeLabel = scale
+            ? `${(hw * 2 / scale.pixelsPerFoot).toFixed(1)} × ${(hh * 2 / scale.pixelsPerFoot).toFixed(1)} ft`
+            : `${Math.round(hw * 2)} × ${Math.round(hh * 2)} px`
+          areaEffectLayerRef.current?.showPreview((start.x + x) / 2, (start.y + y) / 2, hw, hh, 'rect', color, 0.45, sizeLabel)
+        }
+      }
+
       if (activeTool === 'laser') {
         const { x, y } = toMapCoords(e)
         laserLayerRef.current?.setPosition(x, y, laserRadius, laserColor)
@@ -753,7 +820,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         measurementLayerRef.current?.drawMeasure(p1.x, p1.y, x, y, label, worldRef.current?.scale.x ?? 1)
       }
     },
-    [isPlayerView, activeTool, brushRadius, tokenLabelVisible, tokenLabelHiddenTypes, laserRadius, laserColor, toMapCoords, paintAt, updateBrushCursor]
+    [isPlayerView, activeTool, brushRadius, tokenLabelVisible, tokenLabelHiddenTypes, laserRadius, laserColor, toMapCoords, paintAt, updateBrushCursor, areaEffectShape, areaEffectKind]
   )
 
   const onPointerUp = useCallback(
@@ -800,12 +867,43 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         isDraggingTokenRef.current = null
       }
 
+      if (isDrawingAreaEffectRef.current && areaEffectDrawStartRef.current) {
+        isDrawingAreaEffectRef.current = false
+        const start = areaEffectDrawStartRef.current
+        areaEffectDrawStartRef.current = null
+        areaEffectLayerRef.current?.clearPreview()
+        const { color, label } = AREA_EFFECT_PRESETS[areaEffectKind]
+        const { x: ux, y: uy } = toMapCoords(e)
+        if (areaEffectShape === 'circle') {
+          const radius = Math.hypot(ux - start.x, uy - start.y)
+          if (radius > 10) {
+            addAreaEffect({
+              kind: areaEffectKind, shape: 'circle',
+              x: start.x, y: start.y,
+              radius, height: radius,
+              color, label, opacity: 0.45, visibleToPlayers: true,
+            })
+          }
+        } else {
+          const hw = Math.abs(ux - start.x) / 2
+          const hh = Math.abs(uy - start.y) / 2
+          if (hw > 5 && hh > 5) {
+            addAreaEffect({
+              kind: areaEffectKind, shape: 'rect',
+              x: (start.x + ux) / 2, y: (start.y + uy) / 2,
+              radius: hw, height: hh,
+              color, label, opacity: 0.45, visibleToPlayers: true,
+            })
+          }
+        }
+      }
+
       // Finalize measurement — line stays visible until next drag
       if (activeTool === 'measure') {
         isMeasuringRef.current = false
       }
     },
-    [isPlayerView, activeTool, toMapCoords, updateToken, commitStroke]
+    [isPlayerView, activeTool, toMapCoords, updateToken, commitStroke, addAreaEffect, areaEffectKind, areaEffectShape]
   )
 
   const onPointerLeave = useCallback(
@@ -815,6 +913,11 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       isRightClickLasingRef.current = false
       laserLayerRef.current?.clearPointer()
       window.api?.sendLaserPointer(null)
+      if (isDrawingAreaEffectRef.current) {
+        isDrawingAreaEffectRef.current = false
+        areaEffectDrawStartRef.current = null
+        areaEffectLayerRef.current?.clearPreview()
+      }
       onPointerUp(e)
     },
     [onPointerUp]
@@ -893,6 +996,7 @@ function getCursor(tool: string, isPlayerView: boolean): string {
     case 'token-move':
       return 'pointer'
     case 'measure':
+    case 'area-effect':
       return 'crosshair'
     default:
       return 'default'

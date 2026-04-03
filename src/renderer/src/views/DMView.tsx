@@ -7,7 +7,8 @@ import { ExportPartyDialog } from '../components/ExportPartyDialog'
 import { MonsterSearchModal } from '../components/MonsterSearchModal'
 import { CharacterSheetModal } from '../components/CharacterSheetModal'
 import { useGameStore } from '../store/gameStore'
-import type { Token, TokenSize, TokenStatus, MonsterSheet } from '../types'
+import type { Token, TokenSize, TokenStatus, MonsterSheet, AreaEffectKind } from '../types'
+import { AREA_EFFECT_PRESETS } from '../pixi/AreaEffectLayer'
 import type { MonsterEntry } from '../types/monster'
 import { entryToSheet } from '../types/monster'
 
@@ -34,16 +35,17 @@ const TYPE_DEFAULT_COLORS: Record<Token['type'], string> = {
   enemy: '#e53935',
 }
 
-const TOOL_CYCLE = ['select', 'fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser', 'measure'] as const
+const TOOL_CYCLE = ['select', 'fog-reveal', 'fog-hide', 'token-move', 'pan', 'laser', 'measure', 'area-effect'] as const
 
 const DOCK_TOOLS = [
-  { id: 'select',     label: 'Select',  icon: '⊹', key: 'V' },
-  { id: 'fog-reveal', label: 'Reveal',  icon: '◐', key: 'R' },
-  { id: 'fog-hide',   label: 'Hide',    icon: '◑', key: 'H' },
-  { id: 'token-move', label: 'Move',    icon: '✥', key: 'T' },
-  { id: 'pan',        label: 'Pan',     icon: '⤢', key: 'P' },
-  { id: 'laser',      label: 'Laser',   icon: '✦', key: 'L' },
-  { id: 'measure',    label: 'Measure', icon: '⟺', key: 'M' },
+  { id: 'select',      label: 'Select',  icon: '⊹', key: 'V' },
+  { id: 'fog-reveal',  label: 'Reveal',  icon: '◐', key: 'R' },
+  { id: 'fog-hide',    label: 'Hide',    icon: '◑', key: 'H' },
+  { id: 'token-move',  label: 'Move',    icon: '✥', key: 'T' },
+  { id: 'pan',         label: 'Pan',     icon: '⤢', key: 'P' },
+  { id: 'laser',       label: 'Laser',   icon: '✦', key: 'L' },
+  { id: 'measure',     label: 'Measure', icon: '⟺', key: 'M' },
+  { id: 'area-effect', label: 'Effects', icon: '◈', key: 'E' },
 ] as const
 
 const LASER_COLORS = ['#ff2222', '#ff9800', '#ffeb3b', '#4caf50', '#4a9eff', '#ffffff']
@@ -114,6 +116,15 @@ export function DMView(): React.JSX.Element {
     setMapScale,
     calibrationPending,
     clearCalibrationPending,
+    areaEffects,
+    selectedAreaEffectId,
+    areaEffectShape,
+    areaEffectKind,
+    setAreaEffectShape,
+    setAreaEffectKind,
+    updateAreaEffect,
+    removeAreaEffect,
+    setSelectedAreaEffectId,
   } = useGameStore()
 
   // Calibration dialog state
@@ -206,6 +217,7 @@ export function DMView(): React.JSX.Element {
         case 'p': setActiveTool('pan'); break
         case 'l': setActiveTool('laser'); break
         case 'm': setActiveTool('measure'); break
+        case 'e': setActiveTool('area-effect'); break
         case 'tab': {
           e.preventDefault()
           const idx = TOOL_CYCLE.indexOf(activeTool as typeof TOOL_CYCLE[number])
@@ -812,6 +824,36 @@ export function DMView(): React.JSX.Element {
           </>
         )}
 
+        {map && areaEffects.length > 0 && (
+          <div className="area-effect-list-section">
+            <div className="area-effect-list-header">Area Effects</div>
+            <ul className="area-effect-list">
+              {areaEffects.map((ae) => (
+                <li
+                  key={ae.id}
+                  className={`area-effect-item ${selectedAreaEffectId === ae.id ? 'area-effect-selected' : ''}`}
+                  onClick={() => setSelectedAreaEffectId(ae.id === selectedAreaEffectId ? null : ae.id)}
+                >
+                  <span className="area-effect-swatch" style={{ background: ae.color }} />
+                  <span className="area-effect-label">{ae.label}</span>
+                  <div className="area-effect-item-actions">
+                    <button
+                      className="btn-icon"
+                      title={ae.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}
+                      onClick={(ev) => { ev.stopPropagation(); updateAreaEffect({ ...ae, visibleToPlayers: !ae.visibleToPlayers }) }}
+                    >{ae.visibleToPlayers ? '👁' : '🚫'}</button>
+                    <button
+                      className="btn-icon remove"
+                      title="Remove area effect"
+                      onClick={(ev) => { ev.stopPropagation(); removeAreaEffect(ae.id) }}
+                    >✕</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {selectedToken && (
           <section className="sidebar-section">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1032,7 +1074,7 @@ export function DMView(): React.JSX.Element {
         <div ref={dockRef} className={`tool-dock ${dockVisible || dockPinned ? 'tool-dock-visible' : ''}`}>
           {DOCK_TOOLS.map((tool) => (
             <div key={tool.id} className="dock-slot">
-              {activeTool === tool.id && (tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide' || tool.id === 'laser' || tool.id === 'measure') && (
+              {activeTool === tool.id && (tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide' || tool.id === 'laser' || tool.id === 'measure' || tool.id === 'area-effect') && (
                 <div className="dock-popover">
                   {(tool.id === 'select' || tool.id === 'fog-reveal' || tool.id === 'fog-hide') && (
                     <>
@@ -1128,6 +1170,35 @@ export function DMView(): React.JSX.Element {
                           Clear Scale
                         </button>
                       )}
+                    </div>
+                  )}
+                  {tool.id === 'area-effect' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 0' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Shape</div>
+                      <div className="brush-shape-toggle">
+                        <button
+                          className={`brush-shape-btn ${areaEffectShape === 'circle' ? 'brush-shape-btn-active' : ''}`}
+                          onClick={() => setAreaEffectShape('circle')}
+                        >◯ Circle</button>
+                        <button
+                          className={`brush-shape-btn ${areaEffectShape === 'rect' ? 'brush-shape-btn-active' : ''}`}
+                          onClick={() => setAreaEffectShape('rect')}
+                        >▢ Rect</button>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>Effect</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {(Object.keys(AREA_EFFECT_PRESETS) as AreaEffectKind[]).map((kind) => (
+                          <button
+                            key={kind}
+                            className={`brush-shape-btn ${areaEffectKind === kind ? 'brush-shape-btn-active' : ''}`}
+                            style={{ justifyContent: 'flex-start', gap: 6 }}
+                            onClick={() => setAreaEffectKind(kind)}
+                          >
+                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: AREA_EFFECT_PRESETS[kind].color, flexShrink: 0 }} />
+                            {AREA_EFFECT_PRESETS[kind].label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

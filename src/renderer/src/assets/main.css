@@ -1208,6 +1208,75 @@ kbd {
   line-height: 14px;
 }
 
+/* ── Area Effect list ────────────────────────────────────────────── */
+
+.area-effect-list-section {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.area-effect-list-header {
+  padding: 6px 12px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.area-effect-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.area-effect-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.1s;
+}
+
+.area-effect-item:hover {
+  background: var(--bg-hover);
+}
+
+.area-effect-selected {
+  border-left-color: var(--accent);
+  background: var(--bg-section);
+}
+
+.area-effect-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.area-effect-label {
+  flex: 1;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.area-effect-item-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 /* ── Brush shape toggle ─────────────────────────────────────────── */
 
 .brush-shape-toggle {

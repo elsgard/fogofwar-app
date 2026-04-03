@@ -1,4 +1,4 @@
-import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle, MonsterReveal, IdleEffects, MapScale } from '../renderer/src/types'
+import type { GameState, FogOp, Token, MapInfo, SaveFile, PlayerViewport, Battle, MonsterReveal, IdleEffects, MapScale, AreaEffect } from '../renderer/src/types'
 import { applyFogOp } from '../shared/fogOps'
 
 const state: GameState = {
@@ -6,6 +6,7 @@ const state: GameState = {
   fogOps: [],
   fogSnapshot: null,
   tokens: [],
+  areaEffects: [],
   tokenRadius: 20,
   tokenLabelSize: 14,
   tokenLabelVisible: true,
@@ -64,6 +65,19 @@ export function removeToken(id: string): void {
   state.tokens = state.tokens.filter((t) => t.id !== id)
 }
 
+export function addAreaEffect(effect: AreaEffect): void {
+  state.areaEffects.push(effect)
+}
+
+export function updateAreaEffect(updated: AreaEffect): void {
+  const idx = state.areaEffects.findIndex((e) => e.id === updated.id)
+  if (idx !== -1) state.areaEffects[idx] = updated
+}
+
+export function removeAreaEffect(id: string): void {
+  state.areaEffects = state.areaEffects.filter((e) => e.id !== id)
+}
+
 export function setTokenRadius(r: number): void {
   state.tokenRadius = r
 }
@@ -110,6 +124,7 @@ export function loadSave(save: SaveFile): void {
   state.fogOps = save.fogOps
   state.fogSnapshot = save.fogSnapshot ?? null
   state.tokens = save.tokens
+  state.areaEffects = save.areaEffects ?? []
   state.tokenRadius = save.tokenRadius
   state.tokenLabelSize = save.tokenLabelSize
   state.tokenLabelVisible = save.tokenLabelVisible

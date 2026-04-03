@@ -6,6 +6,22 @@ export type TokenType = 'player' | 'npc' | 'enemy'
 export type TokenStatus = 'alive' | 'dsa' | 'dead'
 export type TokenSize = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan'
 
+export type AreaEffectKind = 'burning' | 'webbed' | 'frozen' | 'acid' | 'custom'
+
+export interface AreaEffect {
+  id: string
+  kind: AreaEffectKind
+  shape: 'circle' | 'rect'
+  x: number        // map-space center
+  y: number
+  radius: number   // circle: radius; rect: half-width
+  height: number   // circle: same as radius; rect: half-height
+  color: string
+  label: string
+  opacity: number  // 0.0–1.0, default 0.45
+  visibleToPlayers: boolean
+}
+
 export interface Token {
   id: string
   type: TokenType
@@ -125,6 +141,7 @@ export interface GameState {
   fogOps: FogOp[]
   fogSnapshot: string | null // base64 PNG of baked fog baseline; null = none
   tokens: Token[]
+  areaEffects: AreaEffect[]
   tokenRadius: number
   tokenLabelSize: number
   tokenLabelVisible: boolean
@@ -156,6 +173,7 @@ export interface SaveFile {
   playerViewport: PlayerViewport | null
   battle: Battle | null
   mapScale?: MapScale | null // optional: absent in older saves → treated as null
+  areaEffects?: AreaEffect[] // optional: absent in older saves → treated as []
 }
 
 // IPC channel names as a const object to share between main and preload
@@ -189,4 +207,7 @@ export const IPC = {
   APP_CHECK_CLOSE: 'app:check-close',
   APP_CONFIRM_CLOSE: 'app:confirm-close',
   SET_MAP_SCALE: 'game:set-map-scale',
+  ADD_AREA_EFFECT: 'game:add-area-effect',
+  UPDATE_AREA_EFFECT: 'game:update-area-effect',
+  REMOVE_AREA_EFFECT: 'game:remove-area-effect',
 } as const

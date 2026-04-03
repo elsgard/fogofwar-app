@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType, IdleEffects, MapScale } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType, IdleEffects, MapScale, AreaEffect } from '../renderer/src/types'
 
 export interface FogOfWarAPI {
   getState: () => Promise<GameState>
@@ -14,6 +14,9 @@ export interface FogOfWarAPI {
   addToken: (token: Token) => void
   updateToken: (token: Token) => void
   removeToken: (id: string) => void
+  addAreaEffect: (effect: AreaEffect) => void
+  updateAreaEffect: (effect: AreaEffect) => void
+  removeAreaEffect: (id: string) => void
   setTokenRadius: (r: number) => void
   setTokenLabelSize: (size: number) => void
   setTokenLabelVisible: (visible: boolean) => void

@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../renderer/src/types'
-import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType, IdleEffects, MapScale } from '../renderer/src/types'
+import type { FogOp, Token, MapInfo, GameState, PlayerViewport, Battle, MonsterReveal, TokenType, IdleEffects, MapScale, AreaEffect } from '../renderer/src/types'
 
 const api = {
   getState: (): Promise<GameState> => ipcRenderer.invoke(IPC.GET_STATE),
@@ -26,6 +26,10 @@ const api = {
   updateToken: (token: Token): void => ipcRenderer.send(IPC.UPDATE_TOKEN, token),
 
   removeToken: (id: string): void => ipcRenderer.send(IPC.REMOVE_TOKEN, id),
+
+  addAreaEffect: (effect: AreaEffect): void => ipcRenderer.send(IPC.ADD_AREA_EFFECT, effect),
+  updateAreaEffect: (effect: AreaEffect): void => ipcRenderer.send(IPC.UPDATE_AREA_EFFECT, effect),
+  removeAreaEffect: (id: string): void => ipcRenderer.send(IPC.REMOVE_AREA_EFFECT, id),
 
   setTokenRadius: (r: number): void => ipcRenderer.send(IPC.SET_TOKEN_RADIUS, r),
   setTokenLabelSize: (size: number): void => ipcRenderer.send(IPC.SET_TOKEN_LABEL_SIZE, size),
