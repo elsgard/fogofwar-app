@@ -171,11 +171,15 @@ export function DMView(): React.JSX.Element {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [dockVisible, setDockVisible] = useState(false)
   const [dockPinned, setDockPinned] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [tokenListCollapsed, setTokenListCollapsed] = useState(false)
+  const [areaEffectsCollapsed, setAreaEffectsCollapsed] = useState(false)
   const [showCloseWarning, setShowCloseWarning] = useState(false)
   const [openMenu, setOpenMenu] = useState<'session' | 'map' | 'player' | null>(null)
   const [showIdlePopover, setShowIdlePopover] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [showBattlePanel, setShowBattlePanel] = useState(false)
+  const [battlePanelCollapsed, setBattlePanelCollapsed] = useState(false)
   const [showExportPartyDialog, setShowExportPartyDialog] = useState(false)
   const [showMonsterSearch, setShowMonsterSearch] = useState(false)
   const [viewSheet, setViewSheet] = useState<MonsterSheet | null>(null)
@@ -638,7 +642,10 @@ export function DMView(): React.JSX.Element {
         {/* Battle button */}
         <button
           className={`menu-trigger ${showBattlePanel ? 'open' : ''}`}
-          onClick={() => setShowBattlePanel((v) => !v)}
+          onClick={() => {
+            if (!showBattlePanel) setBattlePanelCollapsed(false)
+            setShowBattlePanel((v) => !v)
+          }}
         >
           Battle{battle?.isActive ? ' ⚔' : ''}
         </button>
@@ -709,7 +716,14 @@ export function DMView(): React.JSX.Element {
       </nav>
 
       {/* ── Left sidebar ── */}
-      <aside className="sidebar">
+      <button
+        className={`sidebar-toggle-tab ${sidebarCollapsed ? 'collapsed' : ''}`}
+        onClick={() => setSidebarCollapsed((v) => !v)}
+        title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+      >
+        {sidebarCollapsed ? '›' : '‹'}
+      </button>
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
 
         {/* Tokens + token list (only when map loaded) */}
         {map && (
@@ -866,8 +880,12 @@ export function DMView(): React.JSX.Element {
             </section>
 
             {/* Token list — grows to fill remaining sidebar space */}
-            <div className="token-list-section">
-              <ul className="token-list">
+            <div className={`token-list-section ${tokenListCollapsed ? 'collapsed' : ''}`}>
+              <button className="collapsible-header" onClick={() => setTokenListCollapsed((v) => !v)}>
+                <span>Token List ({tokens.length})</span>
+                <span className="collapsible-chevron">{tokenListCollapsed ? '›' : '⌄'}</span>
+              </button>
+              {!tokenListCollapsed && <ul className="token-list">
                 {tokens.map((token) => (
                   <li
                     key={token.id}
@@ -923,40 +941,10 @@ export function DMView(): React.JSX.Element {
                     </div>
                   </li>
                 ))}
-              </ul>
+              </ul>}
             </div>
 
           </>
-        )}
-
-        {map && areaEffects.length > 0 && (
-          <div className="area-effect-list-section">
-            <div className="area-effect-list-header">Area Effects</div>
-            <ul className="area-effect-list">
-              {areaEffects.map((ae) => (
-                <li
-                  key={ae.id}
-                  className={`area-effect-item ${selectedAreaEffectId === ae.id ? 'area-effect-selected' : ''}`}
-                  onClick={() => setSelectedAreaEffectId(ae.id === selectedAreaEffectId ? null : ae.id)}
-                >
-                  <span className="area-effect-swatch" style={{ background: ae.color }} />
-                  <span className="area-effect-label">{ae.label}</span>
-                  <div className="area-effect-item-actions">
-                    <button
-                      className="btn-icon"
-                      title={ae.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}
-                      onClick={(ev) => { ev.stopPropagation(); updateAreaEffect({ ...ae, visibleToPlayers: !ae.visibleToPlayers }) }}
-                    >{ae.visibleToPlayers ? '👁' : '🚫'}</button>
-                    <button
-                      className="btn-icon remove"
-                      title="Remove area effect"
-                      onClick={(ev) => { ev.stopPropagation(); removeAreaEffect(ae.id) }}
-                    >✕</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
         )}
 
         {selectedToken && (
@@ -1044,10 +1032,55 @@ export function DMView(): React.JSX.Element {
             </div>
           </section>
         )}
+
+        {map && areaEffects.length > 0 && (
+          <div className="area-effect-list-section">
+            <button className="collapsible-header" onClick={() => setAreaEffectsCollapsed((v) => !v)}>
+              <span>Area Effects ({areaEffects.length})</span>
+              <span className="collapsible-chevron">{areaEffectsCollapsed ? '›' : '⌄'}</span>
+            </button>
+            {!areaEffectsCollapsed && <ul className="area-effect-list">
+              {areaEffects.map((ae) => (
+                <li
+                  key={ae.id}
+                  className={`area-effect-item ${selectedAreaEffectId === ae.id ? 'area-effect-selected' : ''}`}
+                  onClick={() => setSelectedAreaEffectId(ae.id === selectedAreaEffectId ? null : ae.id)}
+                >
+                  <span className="area-effect-swatch" style={{ background: ae.color }} />
+                  <span className="area-effect-label">{ae.label}</span>
+                  <div className="area-effect-item-actions">
+                    <button
+                      className="btn-icon"
+                      title={ae.visibleToPlayers ? 'Visible to players' : 'Hidden from players'}
+                      onClick={(ev) => { ev.stopPropagation(); updateAreaEffect({ ...ae, visibleToPlayers: !ae.visibleToPlayers }) }}
+                    >{ae.visibleToPlayers ? '👁' : '🚫'}</button>
+                    <button
+                      className="btn-icon remove"
+                      title="Remove area effect"
+                      onClick={(ev) => { ev.stopPropagation(); removeAreaEffect(ae.id) }}
+                    >✕</button>
+                  </div>
+                </li>
+              ))}
+            </ul>}
+          </div>
+        )}
       </aside>
 
-      {/* ── Battle panel (right side overlay) ── */}
-      {showBattlePanel && <BattlePanel onClose={() => setShowBattlePanel(false)} />}
+      {/* ── Battle panel (right side overlay) ── always in DOM to avoid layout thrash */}
+      {showBattlePanel && (
+        <button
+          className={`battle-panel-toggle-tab ${battlePanelCollapsed ? 'collapsed' : ''}`}
+          onClick={() => setBattlePanelCollapsed((v) => !v)}
+          title={battlePanelCollapsed ? 'Show battle tracker' : 'Hide battle tracker'}
+        >
+          {battlePanelCollapsed ? '‹' : '›'}
+        </button>
+      )}
+      <BattlePanel
+        collapsed={!showBattlePanel || battlePanelCollapsed}
+        onClose={() => { setShowBattlePanel(false); setBattlePanelCollapsed(false) }}
+      />
 
       {showCloseWarning && (
         <div className="dialog-overlay">

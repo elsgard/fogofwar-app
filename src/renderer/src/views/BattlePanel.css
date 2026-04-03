@@ -6,19 +6,52 @@
   right: 0;
   bottom: 0;
   width: 340px;
-  background: var(--bg-sidebar);
-  border-left: 1px solid var(--border);
+  background: rgba(14, 14, 30, 0.82);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   z-index: 10;
   overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
+.battle-panel.collapsed {
+  transform: translateX(100%);
+}
+
+.battle-panel-toggle-tab {
+  position: fixed;
+  top: 52px;
+  right: 340px;
+  width: 20px;
+  height: 44px;
+  background: rgba(14, 14, 30, 0.82);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 11;
+  transition: right 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  padding: 0;
+  box-shadow: -3px 0 12px rgba(0, 0, 0, 0.4);
+}
+.battle-panel-toggle-tab:hover { color: var(--text); background: rgba(30, 30, 60, 0.9); }
+.battle-panel-toggle-tab.collapsed { right: 0; }
 
 /* ── Panel header ── */
 
 .battle-panel-header {
   padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
 }
 
@@ -62,7 +95,7 @@
   flex-shrink: 0;
   max-height: 40vh;
   overflow-y: auto;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .combatant-row {
@@ -78,7 +111,7 @@
 }
 
 .combatant-row:hover {
-  background: var(--bg-section);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .combatant-row.is-active {
@@ -202,7 +235,7 @@
   gap: 2px;
   opacity: 0;
   transition: opacity 0.1s;
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
 }
 
@@ -217,7 +250,7 @@
   text-align: left;
   background: none;
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
   font-size: 12px;
   padding: 6px 12px;
@@ -229,13 +262,13 @@
 
 .add-combatant-toggle:hover {
   color: var(--text);
-  background: var(--bg-section);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .add-combatant-form {
   padding: 8px 12px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-section);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -284,7 +317,7 @@
   display: flex;
   gap: 6px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -338,7 +371,7 @@
   display: flex;
   gap: 6px;
   padding: 6px 10px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
 }
 
@@ -360,8 +393,10 @@
 /* ── Attack popover ── */
 
 .attack-popover {
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
+  background: rgba(14, 14, 30, 0.92);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--radius);
   padding: 8px;
   display: flex;
@@ -369,7 +404,7 @@
   gap: 6px;
   z-index: 200;
   min-width: 200px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
 }
 
 .attack-popover-from {
@@ -394,8 +429,10 @@
 /* ── Effect popover ── */
 
 .effect-popover {
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
+  background: rgba(14, 14, 30, 0.92);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--radius);
   padding: 8px;
   display: flex;
@@ -403,7 +440,7 @@
   gap: 6px;
   z-index: 20;
   min-width: 180px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
 }
 
 .effect-popover input {

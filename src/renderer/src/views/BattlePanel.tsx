@@ -390,9 +390,10 @@ function CombatantRow({ combatant: c, token, round, onUpdate, onRemove, onViewSh
 
 interface Props {
   onClose: () => void
+  collapsed?: boolean
 }
 
-export function BattlePanel({ onClose }: Props): React.JSX.Element {
+export function BattlePanel({ onClose, collapsed = false }: Props): React.JSX.Element {
   const battle = useGameStore((s) => s.battle)
   const tokens = useGameStore((s) => s.tokens)
   const setBattle = useGameStore((s) => s.setBattle)
@@ -631,7 +632,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
 
   if (!battle) {
     return (
-      <div className="battle-panel">
+      <div className={`battle-panel ${collapsed ? 'collapsed' : ''}`}>
         <div className="battle-panel-header">
           <div className="battle-panel-header-row">
             <span className="battle-panel-title">Battle Tracker</span>
@@ -657,7 +658,7 @@ export function BattlePanel({ onClose }: Props): React.JSX.Element {
   const selectedToken = newTokenId !== 'none' ? tokens.find((t) => t.id === newTokenId) : null
 
   return (
-    <div className="battle-panel">
+    <div className={`battle-panel ${collapsed ? 'collapsed' : ''}`}>
 
       {/* Header */}
       <div className="battle-panel-header">
