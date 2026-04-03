@@ -63,6 +63,9 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   // Right-click laser — active regardless of the selected tool
   const isRightClickLasingRef = useRef(false)
 
+  // Last known pointer position — used to redraw brush cursor on scroll without a move event
+  const lastPointerClientRef = useRef<{ clientX: number; clientY: number; ctrlKey: boolean; shiftKey: boolean }>({ clientX: 0, clientY: 0, ctrlKey: false, shiftKey: false })
+
   // Area effect drawing state
   const isDrawingAreaEffectRef = useRef(false)
   const areaEffectDrawStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -99,7 +102,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   const laserRadius = useGameStore((s) => s.laserRadius)
   const laserColor = useGameStore((s) => s.laserColor)
   const isPickingAttackTarget = useGameStore((s) => s.isPickingAttackTarget)
-  const { commitStroke, updateToken, setSelectedTokenId, addAreaEffect, setSelectedAreaEffectId } = useGameStore()
+  const { commitStroke, updateToken, setSelectedTokenId, addAreaEffect, setSelectedAreaEffectId, setBrushRadius } = useGameStore()
 
   // Compaction threshold — when fogOps exceeds this after a stroke, bake a snapshot
   const COMPACT_THRESHOLD = 500
@@ -731,6 +734,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
         return
       }
 
+      lastPointerClientRef.current = { clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey }
       updateBrushCursor(e, activeTool, brushRadius)
 
       if (isPanningRef.current && lastPanRef.current && worldRef.current) {
@@ -923,8 +927,21 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     [onPointerUp]
   )
 
-  // ── Scroll to zoom ───────────────────────────────────────────────────────
+  // ── Scroll to zoom / brush resize ────────────────────────────────────────
   const onWheel = useCallback((e: React.WheelEvent) => {
+    const isBrushTool = activeTool === 'fog-reveal' || activeTool === 'fog-hide' || activeTool === 'select'
+    const brushModifier = e.ctrlKey || (e.shiftKey && activeTool === 'select')
+
+    if (isBrushTool && brushModifier) {
+      e.preventDefault()
+      const step = e.deltaY > 0 ? -5 : 5
+      const newRadius = Math.min(Math.max(brushRadius + step, 10), 300)
+      setBrushRadius(newRadius)
+      // Redraw cursor immediately at stored pointer position with new radius
+      updateBrushCursor(lastPointerClientRef.current as unknown as React.PointerEvent, activeTool, newRadius)
+      return
+    }
+
     const world = worldRef.current
     const canvas = canvasRef.current
     if (!world || !canvas) return
@@ -939,7 +956,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     world.x = mouseX - (mouseX - world.x) * (newScale / world.scale.x)
     world.y = mouseY - (mouseY - world.y) * (newScale / world.scale.y)
     world.scale.set(newScale)
-  }, [])
+  }, [activeTool, brushRadius, setBrushRadius, updateBrushCursor])
 
   return (
     <div
